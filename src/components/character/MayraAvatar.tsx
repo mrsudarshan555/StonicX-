@@ -376,13 +376,14 @@ export const MayraAvatar: React.FC<MayraAvatarProps> = ({
       scene.scale.setScalar(scaleFactor);
 
       // Align chest/tie level directly to origin (Y=0) and center on X & Z for bust-up portrait
-      const chestY = box.max.y - actualHeight * 0.32;
+      // Position character downward so top header, Settings button, and logo have clear breathing space above
+      const chestY = box.max.y - actualHeight * 0.225;
       scene.position.x = -center.x * scaleFactor;
       scene.position.y = -chestY * scaleFactor;
       scene.position.z = -center.z * scaleFactor;
       scene.rotation.set(0, 0, 0);
 
-      // 3. CAMERA CALIBRATION (Bust-up portrait framing matching old APK: FOV 30, distance 2.25)
+      // 3. CAMERA CALIBRATION (Bust-up portrait framing: FOV 30, distance 2.25)
       const CAMERA_DISTANCE = 2.25;
       const fov = 30;
 
@@ -568,15 +569,15 @@ export const MayraAvatar: React.FC<MayraAvatarProps> = ({
             powerPreference: 'high-performance'
           }}
         >
-          {/* Reference Soft Lighting Rig: Natural Ambient & Hemisphere base + single gentle front-top diffuse key */}
-          {/* 1. Base Soft Ambient Light (even global illumination for entire character, clothing and hands) */}
-          <ambientLight intensity={0.82} color="#ffffff" />
+          {/* Reference Soft Lighting Rig: Natural Ambient & Hemisphere base + gentle front-top key */}
+          {/* 1. Base Soft Ambient Light (warm natural illumination for character) */}
+          <ambientLight intensity={0.68} color="#fff8f2" />
 
-          {/* 2. Soft Sky/Ground Hemisphere Light (natural gentle gradient, zero harsh contrast) */}
-          <hemisphereLight color="#fffaf5" groundColor="#3e4c5f" intensity={0.40} />
+          {/* 2. Soft Sky/Ground Hemisphere Light (natural gentle warmth, zero harsh contrast) */}
+          <hemisphereLight color="#fff3ea" groundColor="#403632" intensity={0.38} />
 
-          {/* 3. Single Gentle Front-Top Key Light (very soft natural under-nose shadow and subtle chin depth, zero hot spots) */}
-          <directionalLight position={[0.2, 2.0, 2.4]} intensity={0.42} color="#fffdfa" />
+          {/* 3. Single Gentle Front-Top Key Light (natural under-nose shadow and subtle chin depth, zero hot spots) */}
+          <directionalLight position={[0.2, 1.8, 2.2]} intensity={0.44} color="#fffcf7" />
 
           <ModelRenderer 
             modelScene={modelScene} 

@@ -391,23 +391,23 @@ export function tuneCharacterMaterials(
   // Clamp between 0 and 100
   const val = Math.max(0, Math.min(100, skinToneVal));
   
-  // Calculate target RGB multiplier based on slider position (smooth natural warm tone)
+  // Calculate target RGB multiplier based on slider position (smooth natural warm human anime skin tone)
   let targetR: number;
   let targetG: number;
   let targetB: number;
 
   if (val <= 50) {
     const factor = val / 50.0;
-    // Dusky (0): RGB(0.70, 0.54, 0.46) -> Natural Warm Peachy-Wheatish (50): RGB(1.0, 0.98, 0.96)
-    targetR = 0.70 + (1.0 - 0.70) * factor;
-    targetG = 0.54 + (0.98 - 0.54) * factor;
-    targetB = 0.46 + (0.96 - 0.46) * factor;
+    // Dusky / Deep Melanin (0): RGB(0.74, 0.54, 0.44) -> Natural Warm Golden-Peachy Human Tone (50): RGB(1.0, 0.885, 0.82)
+    targetR = 0.74 + (1.0 - 0.74) * factor;
+    targetG = 0.54 + (0.885 - 0.54) * factor;
+    targetB = 0.44 + (0.82 - 0.44) * factor;
   } else {
     const factor = (val - 50) / 50.0;
-    // Natural Warm (50): RGB(1.0, 0.98, 0.96) -> Fair Glow (100): RGB(1.04, 1.02, 1.01)
-    targetR = 1.0 + (1.04 - 1.0) * factor;
-    targetG = 0.98 + (1.02 - 0.98) * factor;
-    targetB = 0.96 + (1.01 - 0.96) * factor;
+    // Natural Warm (50): RGB(1.0, 0.885, 0.82) -> Fair Warm Porcelain (100): RGB(1.0, 0.94, 0.89)
+    targetR = 1.0;
+    targetG = 0.885 + (0.94 - 0.885) * factor;
+    targetB = 0.82 + (0.89 - 0.82) * factor;
   }
 
   modelScene.traverse((child) => {
@@ -495,22 +495,22 @@ export function tuneCharacterMaterials(
           lowerName.includes('tongue');
 
         if (isSkin) {
-          // Soft peachy matte anime skin: eliminates plastic/rubbery shine while retaining subtle 3D contouring
-          const r = isFace ? Math.min(1.0, targetR * 1.005) : targetR;
-          const g = isFace ? targetG * 0.998 : targetG;
-          const b = isFace ? targetB * 0.998 : targetB;
+          // Natural warm anime skin tone: eliminates bleached plastic appearance with warm peachy undertones
+          const r = targetR;
+          const g = isFace ? targetG * 0.99 : targetG;
+          const b = isFace ? targetB * 0.97 : targetB;
 
           standardMat.color.setRGB(r, g, b);
-          standardMat.roughness = 0.96;
+          standardMat.roughness = 0.88;
           standardMat.metalness = 0.0;
           standardMat.emissive.setRGB(0.0, 0.0, 0.0);
         } else if (isHair) {
-          // Hair: soft matte anime texture with distinct layered strand depth, zero plastic helmet shine
+          // Hair: preserve original texture and material characteristics without artificial brightening
           standardMat.roughness = 0.92;
           standardMat.metalness = 0.0;
           standardMat.emissive.setRGB(0.0, 0.0, 0.0);
         } else if (isIris) {
-          // Iris: deep crystal clarity with subtle anime depth
+          // Iris: crystal clarity with subtle depth
           standardMat.roughness = 0.40;
           standardMat.metalness = 0.0;
           standardMat.emissive.setRGB(0.0, 0.0, 0.0);
@@ -521,7 +521,7 @@ export function tuneCharacterMaterials(
           standardMat.color.setRGB(1.0, 1.0, 1.0);
           standardMat.emissive.setRGB(0.9, 0.9, 0.9);
         } else if (isEyeWhite) {
-          // Eye White: clean organic sclera without graying or plastic gloss
+          // Eye White: clean organic sclera
           standardMat.roughness = 0.80;
           standardMat.metalness = 0.0;
           standardMat.color.setRGB(0.98, 0.98, 0.98);
@@ -532,7 +532,7 @@ export function tuneCharacterMaterials(
           standardMat.metalness = 0.0;
           standardMat.emissive.setRGB(0.0, 0.0, 0.0);
         } else if (isWhiteShirt) {
-          // White Shirt: soft clean cotton fabric, zero hard plastic shine or isolated bulb hotspot
+          // White Shirt: crisp clean fabric separated from skin tone
           standardMat.roughness = 0.98;
           standardMat.metalness = 0.0;
           standardMat.color.setRGB(1.0, 1.0, 1.0);

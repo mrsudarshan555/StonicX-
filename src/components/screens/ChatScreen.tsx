@@ -11,7 +11,7 @@ interface ChatScreenProps {
   status: AssistantStatus;
   inputText: string;
   setInputText: (val: string) => void;
-  onSubmitPrompt: () => void;
+  onSubmitPrompt: (customText?: string) => void;
   onTriggerVoice: () => void;
   onClearChat: () => void;
 }
@@ -50,10 +50,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (attachedFile && !inputText.trim()) {
-      setInputText(`[Attached file: ${attachedFile.name} (${attachedFile.size})]`);
-    }
-    onSubmitPrompt();
+    const promptToSend = attachedFile && !inputText.trim()
+      ? `[Attached file: ${attachedFile.name} (${attachedFile.size})]`
+      : inputText;
+    onSubmitPrompt(promptToSend);
     setAttachedFile(null);
   };
 

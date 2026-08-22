@@ -29,6 +29,230 @@ export const MICROPHONE_CONSTRAINTS: MediaStreamConstraints = {
 // Global registry of active microphone streams for clean session tear-down
 let activeMicStream: MediaStream | null = null;
 
+// Microphone capture state
+let micAudioContext: AudioContext | null = null;
+let micSourceNode: MediaStreamAudioSourceNode | null = null;
+let micScriptProcessor: ScriptProcessorNode | null = null;
+let micSilentGain: GainNode | null = null;
+let isMicCapturing = false;
+
+// Streaming playback state
+let nextSchedulePlayTime = 0;
+const activeSourceNodes = new Set<AudioBufferSourceNode>();
+let activePlaybackCount = 0;
+
+function resampleAndConvertTo16BitPCM(input: Float32Array, inputSampleRate: number, targetSampleRate: number = 16000): ArrayBuffer {
+  if (inputSampleRate === targetSampleRate) {
+    const output = new Int16Array(input.length);
+    for (let i = 0; i < input.length; i++) {
+      const s = Math.max(-1, Math.min(1, input[i]));
+      output[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+    return output.buffer;
+  }
+
+  const ratio = inputSampleRate / targetSampleRate;
+  const newLength = Math.round(input.length / ratio);
+  const output = new Int16Array(newLength);
+  for (let i = 0; i < newLength; i++) {
+    const srcIndex = i * ratio;
+    const srcIndexFloor = Math.floor(srcIndex);
+    const srcIndexCeil = Math.min(input.length - 1, Math.ceil(srcIndex));
+    const interpolation = srcIndex - srcIndexFloor;
+    const sample = input[srcIndexFloor] + (input[srcIndexCeil] - input[srcIndexFloor]) * interpolation;
+    const s = Math.max(-1, Math.min(1, sample));
+    output[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+  }
+  return output.buffer;
+}
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+/**
+ * Starts continuous 16kHz raw PCM microphone capture (Old APK Mx.initializeMicrophone architecture)
+ */
+export async function startPcm16kCapture(onPcmChunk: (base64Pcm: string) => void): Promise<boolean> {
+  if (typeof window === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+    return false;
+  }
+
+  stopPcm16kCapture();
+
+  try {
+    const stream = await acquireMicrophoneStream();
+    if (!stream) return false;
+
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    micAudioContext = new AudioContextClass({ sampleRate: 16000 });
+    if (micAudioContext.state === 'suspended') {
+      await micAudioContext.resume();
+    }
+
+    micSourceNode = micAudioContext.createMediaStreamSource(stream);
+    // Buffer size 2048 samples (~128ms @ 16kHz)
+    micScriptProcessor = micAudioContext.createScriptProcessor(2048, 1, 1);
+
+    micScriptProcessor.onaudioprocess = (e) => {
+      if (!isMicCapturing) return;
+      const inputData = e.inputBuffer.getChannelData(0);
+      const pcmBuffer = resampleAndConvertTo16BitPCM(inputData, micAudioContext?.sampleRate || 16000, 16000);
+      const base64Pcm = arrayBufferToBase64(pcmBuffer);
+      onPcmChunk(base64Pcm);
+    };
+
+    micSilentGain = micAudioContext.createGain();
+    micSilentGain.gain.value = 0; // Completely silent so microphone is not echoed to speaker
+
+    micSourceNode.connect(micScriptProcessor);
+    micScriptProcessor.connect(micSilentGain);
+    micSilentGain.connect(micAudioContext.destination);
+
+    isMicCapturing = true;
+    console.log('[MAYRA Pipeline] PCM_16K_CAPTURE: STARTED (Continuous Old APK Voice Engine)');
+    return true;
+  } catch (err) {
+    console.warn('[MAYRA Pipeline] PCM_16K_CAPTURE_ERROR:', err);
+    stopPcm16kCapture();
+    return false;
+  }
+}
+
+/**
+ * Stops continuous 16kHz PCM microphone capture cleanly
+ */
+export function stopPcm16kCapture(): void {
+  isMicCapturing = false;
+  if (micScriptProcessor) {
+    try {
+      micScriptProcessor.disconnect();
+      micScriptProcessor.onaudioprocess = null;
+    } catch (e) {}
+    micScriptProcessor = null;
+  }
+  if (micSourceNode) {
+    try { micSourceNode.disconnect(); } catch (e) {}
+    micSourceNode = null;
+  }
+  if (micSilentGain) {
+    try { micSilentGain.disconnect(); } catch (e) {}
+    micSilentGain = null;
+  }
+  if (micAudioContext) {
+    try {
+      if (micAudioContext.state !== 'closed') {
+        micAudioContext.close();
+      }
+    } catch (e) {}
+    micAudioContext = null;
+  }
+  cleanupAudioStreams();
+  console.log('[MAYRA Pipeline] PCM_16K_CAPTURE: STOPPED');
+}
+
+/**
+ * Schedules 24kHz raw PCM Aoede audio chunk for seamless queued playback
+ */
+export function schedulePcm24kChunk(
+  base64Data: string,
+  onStart?: () => void,
+  onEnded?: () => void
+): boolean {
+  if (typeof window === 'undefined' || !base64Data) return false;
+
+  try {
+    const audioCtx = getAudioContext();
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(() => {});
+    }
+
+    const binaryString = atob(base64Data);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    const int16Array = new Int16Array(bytes.buffer, bytes.byteOffset, Math.floor(bytes.byteLength / 2));
+    if (int16Array.length === 0) return false;
+
+    const float32Array = new Float32Array(int16Array.length);
+    for (let i = 0; i < int16Array.length; i++) {
+      float32Array[i] = int16Array[i] / 32768.0;
+    }
+
+    const audioBuffer = audioCtx.createBuffer(1, float32Array.length, 24000);
+    audioBuffer.getChannelData(0).set(float32Array);
+
+    console.log('[AUDIO_CONTEXT_STATE] AudioContext state:', audioCtx.state);
+    console.log('[AUDIO_CHUNK_DECODED] Samples:', float32Array.length, 'Duration:', (float32Array.length / 24000).toFixed(3), 's');
+
+    const source = audioCtx.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(audioCtx.destination);
+
+    const currentTime = audioCtx.currentTime;
+    const startTime = Math.max(currentTime + 0.02, nextSchedulePlayTime);
+    nextSchedulePlayTime = startTime + audioBuffer.duration;
+
+    console.log('[AUDIO_CHUNK_SCHEDULED] Scheduled at:', startTime.toFixed(3), 'Duration:', audioBuffer.duration.toFixed(3), 's');
+
+    activeSourceNodes.add(source);
+    activePlaybackCount++;
+
+    if (onStart && activePlaybackCount === 1) {
+      console.log('[AUDIO_PLAYBACK_START] Continuous 24kHz Aoede Voice Playing');
+      onStart();
+    }
+
+    source.onended = () => {
+      activeSourceNodes.delete(source);
+      activePlaybackCount = Math.max(0, activePlaybackCount - 1);
+      if (activePlaybackCount === 0) {
+        nextSchedulePlayTime = 0;
+        console.log('[AUDIO_PLAYBACK_END] All queued 24kHz Aoede Voice Playback Completed');
+        if (onEnded) onEnded();
+      }
+    };
+
+    source.start(startTime);
+    return true;
+  } catch (err) {
+    console.warn('[Voice Engine] schedulePcm24kChunk error:', err);
+    return false;
+  }
+}
+
+/**
+ * Cleanly flushes all queued 24kHz audio chunks and resets the schedule timeline
+ */
+export function flushQueuedAudio(): void {
+  activeSourceNodes.forEach((source) => {
+    try {
+      source.stop();
+      source.disconnect();
+    } catch (e) {}
+  });
+  activeSourceNodes.clear();
+  activePlaybackCount = 0;
+  nextSchedulePlayTime = 0;
+  stopCurrentSpeech();
+}
+
+/**
+ * Checks if voice audio is currently playing
+ */
+export function isAudioPlaying(): boolean {
+  return activePlaybackCount > 0 || currentSourceNode !== null;
+}
+
 /**
  * Clean up existing audio streams and tracks before starting a new recording session
  */
@@ -91,6 +315,71 @@ export function getAudioContext(): AudioContext {
     outputAudioContext = new AudioContextClass({ sampleRate: 24000 });
   }
   return outputAudioContext;
+}
+
+let lastActivationPlayTimestamp = 0;
+
+/**
+ * Plays the Custom Microphone Activation Sound
+ * - Attached EXCLUSIVELY to explicit user UI mic button tap (triggerVoice)
+ * - Never triggered by recognition.onend, automatic restart, silence timeout, or VAD
+ * - Strict timestamp debouncing guarantees exactly ONE playback per real user action
+ */
+export function playCustomActivationSound(): boolean {
+  if (typeof window === 'undefined') return false;
+
+  const now = Date.now();
+  if (now - lastActivationPlayTimestamp < 600) {
+    return false; // Debounced
+  }
+  lastActivationPlayTimestamp = now;
+
+  try {
+    const audioCtx = getAudioContext();
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(() => {});
+    }
+
+    const t0 = audioCtx.currentTime;
+    
+    // Tone 1: Subtle warm digital transient (587.33 Hz - D5)
+    const osc1 = audioCtx.createOscillator();
+    const gain1 = audioCtx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(587.33, t0);
+    osc1.frequency.exponentialRampToValueAtTime(783.99, t0 + 0.06);
+
+    gain1.gain.setValueAtTime(0.001, t0);
+    gain1.gain.linearRampToValueAtTime(0.18, t0 + 0.015);
+    gain1.gain.exponentialRampToValueAtTime(0.001, t0 + 0.08);
+
+    osc1.connect(gain1);
+    gain1.connect(audioCtx.destination);
+    osc1.start(t0);
+    osc1.stop(t0 + 0.085);
+
+    // Tone 2: Crisp harmonic chime resolution (880 Hz - A5 to 1046.5 Hz - C6)
+    const osc2 = audioCtx.createOscillator();
+    const gain2 = audioCtx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(880.0, t0 + 0.05);
+    osc2.frequency.exponentialRampToValueAtTime(1046.5, t0 + 0.12);
+
+    gain2.gain.setValueAtTime(0.001, t0 + 0.05);
+    gain2.gain.linearRampToValueAtTime(0.22, t0 + 0.065);
+    gain2.gain.exponentialRampToValueAtTime(0.001, t0 + 0.22);
+
+    osc2.connect(gain2);
+    gain2.connect(audioCtx.destination);
+    osc2.start(t0 + 0.05);
+    osc2.stop(t0 + 0.23);
+
+    console.log('[MAYRA Pipeline] ACTIVATION_SOUND: PLAYED_CUSTOM_SOUND (User Physical Mic Click)');
+    return true;
+  } catch (e) {
+    console.warn('[MAYRA Pipeline] ACTIVATION_SOUND_ERROR:', e);
+    return false;
+  }
 }
 
 /**

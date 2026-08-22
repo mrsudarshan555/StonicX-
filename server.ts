@@ -92,6 +92,15 @@ async function generateGeminiResponse(
   return null;
 }
 
+function detectLang(text: string): 'hi' | 'en' {
+  if (!text) return 'en';
+  if (/[\u0900-\u097F]/.test(text)) return 'hi';
+  const hinglishWords = ['karo', 'karein', 'kya', 'hai', 'hain', 'kaise', 'mujhe', 'batao', 'mera', 'meri', 'namaste', 'shukriya', 'theek', 'bolo', 'aap'];
+  const lower = text.toLowerCase();
+  if (hinglishWords.some(w => lower.includes(w))) return 'hi';
+  return 'en';
+}
+
 /**
  * Generates natural, human-like voice response using Gemini Audio TTS (Voice: Aoede)
  * Gracefully handles 429 quota limitations without failing the conversation.
@@ -634,52 +643,131 @@ async function startServer() {
     console.log('[Live API] Client connected for real-time Live voice session');
     let session: any = null;
 
-    try {
-      if (process.env.GEMINI_API_KEY) {
-        // =========================================================================
-        // PERMANENT LOCKED LIVE API CONFIGURATION (DO NOT OVERRIDE OR CHANGE)
-        // Model: gemini-3.1-flash-live-preview
-        // Voice: Aoede (Natural Human-Like Real-Time Audio)
-        // =========================================================================
-        session = await ai.live.connect({
-          model: 'gemini-3.1-flash-live-preview',
-          config: {
-            responseModalities: [Modality.AUDIO],
-            inputAudioTranscription: {},
-            outputAudioTranscription: {},
-            speechConfig: {
-              voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Aoede' } }
+    const connectLiveSession = async () => {
+      try {
+        if (process.env.GEMINI_API_KEY) {
+          // =========================================================================
+          // PERMANENT LOCKED LIVE API CONFIGURATION (DO NOT OVERRIDE OR CHANGE)
+          // Model: gemini-3.1-flash-live-preview
+          // Voice: Aoede (Natural Human-Like Real-Time Audio)
+          // =========================================================================
+          session = await ai.live.connect({
+            model: 'gemini-3.1-flash-live-preview',
+            config: {
+              responseModalities: [Modality.AUDIO],
+              inputAudioTranscription: {},
+              outputAudioTranscription: {},
+              speechConfig: {
+                voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Aoede' } }
+              },
+              systemInstruction: 'You are MAYRA, an advanced personal Android AI assistant created by Zafer. Respond concisely, politely and warmly with natural human speech rhythm. When addressed in Hindi or Hinglish, converse fluently in Hindi/Hinglish. User creator is Zafer.'
             },
-            systemInstruction: 'You are MAYRA, an advanced personal Android AI assistant created by Zafer. Respond concisely, politely and warmly with natural human speech rhythm. When addressed in Hindi or Hinglish, converse fluently in Hindi/Hinglish.'
-          },
-          callbacks: {
-            onmessage: (message: any) => {
-              const audio = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
-              const text = message.serverContent?.outputAudioTranscription?.text;
-              if (audio && clientWs.readyState === WebSocket.OPEN) {
-                clientWs.send(JSON.stringify({ audio, mimeType: 'audio/l16; rate=24000; channels=1' }));
-              }
-              if (text && clientWs.readyState === WebSocket.OPEN) {
-                clientWs.send(JSON.stringify({ transcription: text }));
-              }
-              if (message.serverContent?.interrupted && clientWs.readyState === WebSocket.OPEN) {
-                clientWs.send(JSON.stringify({ interrupted: true }));
+            callbacks: {
+              onmessage: (message: any) => {
+                const parts = message.serverContent?.modelTurn?.parts;
+                if (Array.isArray(parts)) {
+                  for (const part of parts) {
+                    if (part.inlineData?.data && clientWs.readyState === WebSocket.OPEN) {
+                      clientWs.send(JSON.stringify({ audio: part.inlineData.data, mimeType: 'audio/l16; rate=24000; channels=1' }));
+                    }
+                  }
+                } else if (parts?.[0]?.inlineData?.data && clientWs.readyState === WebSocket.OPEN) {
+                  clientWs.send(JSON.stringify({ audio: parts[0].inlineData.data, mimeType: 'audio/l16; rate=24000; channels=1' }));
+                }
+
+                const text = message.serverContent?.outputTranscription?.text || message.serverContent?.outputAudioTranscription?.text;
+                const userTranscript = message.serverContent?.inputTranscription?.text || message.serverContent?.inputAudioTranscription?.text;
+                const turnComplete = message.serverContent?.turnComplete;
+                const interrupted = message.serverContent?.interrupted;
+
+                if (text && clientWs.readyState === WebSocket.OPEN) {
+                  clientWs.send(JSON.stringify({ transcription: text, role: 'model' }));
+                }
+                if (userTranscript && clientWs.readyState === WebSocket.OPEN) {
+                  clientWs.send(JSON.stringify({ userTranscription: userTranscript, role: 'user' }));
+                }
+                if (turnComplete && clientWs.readyState === WebSocket.OPEN) {
+                  clientWs.send(JSON.stringify({ turnComplete: true }));
+                }
+                if (interrupted && clientWs.readyState === WebSocket.OPEN) {
+                  clientWs.send(JSON.stringify({ interrupted: true }));
+                }
               }
             }
-          }
-        });
+          });
+          console.log('[Live API] Live Gemini Session initialized successfully.');
+        }
+      } catch (err: any) {
+        console.log('[Live API] Live session notice:', err?.message || err);
       }
-    } catch (err: any) {
-      console.log('[Live API] Live session notice:', err?.message || err);
-    }
+    };
 
-    clientWs.on('message', (data: any) => {
+    await connectLiveSession();
+
+    clientWs.on('message', async (data: any) => {
       try {
         const parsed = JSON.parse(data.toString());
+
+        // Audio frame from continuous microphone
         if (parsed.audio && session) {
-          session.sendRealtimeInput({
-            audio: { data: parsed.audio, mimeType: 'audio/pcm;rate=16000' }
-          });
+          try {
+            session.sendRealtimeInput({
+              audio: { data: parsed.audio, mimeType: 'audio/pcm;rate=16000' }
+            });
+          } catch (e) {
+            try {
+              session.sendRealtimeInput([{ mimeType: 'audio/pcm;rate=16000', data: parsed.audio }]);
+            } catch (e2) {}
+          }
+        }
+
+        // Typed text from Home Screen or Chat Screen
+        if (parsed.text) {
+          console.log(`[LIVE_TEXT_RECEIVED_ON_SERVER] Text: "${parsed.text}"`);
+          
+          // Check for deterministic commands (e.g. Save memory, navigate tab)
+          const detected = parseCommandIntent(parsed.text);
+          if (detected) {
+            console.log(`[LIVE_COMMAND_DETECTED] Action: ${detected.action.type}`);
+            if (clientWs.readyState === WebSocket.OPEN) {
+              clientWs.send(JSON.stringify({ action: detected.action }));
+            }
+          }
+
+          let sentToLive = false;
+          if (session && typeof session.sendClientContent === 'function') {
+            try {
+              session.sendClientContent({
+                turns: [{ role: 'user', parts: [{ text: parsed.text }] }],
+                turnComplete: true
+              });
+              sentToLive = true;
+              console.log('[LIVE_TEXT_SENT_TO_GEMINI_LIVE]');
+            } catch (e: any) {
+              console.warn('[LIVE_TEXT_SEND_ERROR]', e?.message || e);
+            }
+          }
+
+          // Fallback if session was not active
+          if (!sentToLive) {
+            console.log('[LIVE_FALLBACK_SYNTHESIS] Generating fast response + Aoede audio');
+            const lang = detectLang(parsed.text);
+            const replyText = detected?.reply || await generateGeminiResponse(
+              parsed.text, 
+              'You are MAYRA, an advanced personal Android AI assistant created by Zafer. Respond concisely, warmly and naturally with human speech rhythm. When addressed in Hindi or Hinglish, converse fluently in Hindi/Hinglish.',
+              0.7,
+              'gemini-3.1-flash-lite'
+            ) || `Hello Zafer, I have processed: "${parsed.text}".`;
+
+            const audioRes = await generateAoedeVoiceAudio(replyText, lang);
+            if (clientWs.readyState === WebSocket.OPEN) {
+              clientWs.send(JSON.stringify({ transcription: replyText, role: 'model' }));
+              if (audioRes?.audioBase64) {
+                clientWs.send(JSON.stringify({ audio: audioRes.audioBase64, mimeType: 'audio/l16; rate=24000; channels=1' }));
+              }
+              clientWs.send(JSON.stringify({ turnComplete: true }));
+            }
+          }
         }
       } catch (e) {
         // Ignore parse error

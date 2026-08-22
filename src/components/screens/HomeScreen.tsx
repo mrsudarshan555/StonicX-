@@ -18,7 +18,7 @@ interface HomeScreenProps {
   permissions: PermissionItem[];
   inputText: string;
   setInputText: (text: string) => void;
-  onSubmitPrompt: () => void;
+  onSubmitPrompt: (customText?: string) => void;
   onTriggerVoice: () => void;
   onSelectAction: (action: string) => void;
   onOpenSettings: () => void;
@@ -138,10 +138,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     resetIdleTimer();
-    if (attachedFile && !inputText.trim()) {
-      setInputText(`[Attached file: ${attachedFile.name} (${attachedFile.size})]`);
-    }
-    onSubmitPrompt();
+    const promptToSend = attachedFile && !inputText.trim()
+      ? `[Attached file: ${attachedFile.name} (${attachedFile.size})]`
+      : inputText;
+    console.log(`[HOME_TEXT_SUBMIT] Typed prompt submitted: "${promptToSend.trim()}"`);
+    onSubmitPrompt(promptToSend);
     setAttachedFile(null);
   };
 
