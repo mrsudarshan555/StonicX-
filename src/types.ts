@@ -14,6 +14,7 @@ export type SettingsSubScreen =
   | 'voice_guardian'
   | 'linked_devices'
   | 'whiteboard'
+  | 'offline_models'
   | 'backup'
   | 'advanced'
   | 'optional_integrations'

@@ -157,6 +157,8 @@ export interface CharacterSkeletonBones {
   wristR?: THREE.Object3D;
   fingersL: THREE.Object3D[];
   fingersR: THREE.Object3D[];
+  hairBonesL: THREE.Object3D[];
+  hairBonesR: THREE.Object3D[];
 }
 
 export interface MeshRestTransform {
@@ -178,7 +180,9 @@ export function buildCharacterBindings(modelScene: THREE.Group): {
   const morphTargets: ResolvedMorphTarget[] = [];
   const bones: CharacterSkeletonBones = {
     fingersL: [],
-    fingersR: []
+    fingersR: [],
+    hairBonesL: [],
+    hairBonesR: []
   };
   const restRotations = new Map<THREE.Object3D, THREE.Euler>();
   const facialFeatures: CharacterFacialFeatureMeshes = {
@@ -273,6 +277,12 @@ export function buildCharacterBindings(modelScene: THREE.Group): {
         bones.fingersL.push(child);
       } else {
         bones.fingersR.push(child);
+      }
+    } else if (lower.includes('hair') || lower.includes('髪') || lower.includes('twin') || lower.includes('side') || lower.includes('bang') || lower.includes('front')) {
+      if (lower.includes('_l') || lower.includes('.l') || lower.includes('left') || name.includes('左') || lower.includes('l_')) {
+        bones.hairBonesL.push(child);
+      } else {
+        bones.hairBonesR.push(child);
       }
     }
   });
@@ -398,16 +408,16 @@ export function tuneCharacterMaterials(
 
   if (val <= 50) {
     const factor = val / 50.0;
-    // Dusky / Deep Melanin (0): RGB(0.74, 0.54, 0.44) -> Natural Warm Golden-Peachy Human Tone (50): RGB(1.0, 0.885, 0.82)
-    targetR = 0.74 + (1.0 - 0.74) * factor;
-    targetG = 0.54 + (0.885 - 0.54) * factor;
-    targetB = 0.44 + (0.82 - 0.44) * factor;
+    // Dusky / Deep Melanin (0): RGB(0.72, 0.44, 0.31) -> Natural Warm Golden-Peachy Human Tone (50): RGB(1.0, 0.828, 0.730) (+50% saturation)
+    targetR = 0.72 + (1.0 - 0.72) * factor;
+    targetG = 0.44 + (0.828 - 0.44) * factor;
+    targetB = 0.31 + (0.730 - 0.31) * factor;
   } else {
     const factor = (val - 50) / 50.0;
-    // Natural Warm (50): RGB(1.0, 0.885, 0.82) -> Fair Warm Porcelain (100): RGB(1.0, 0.94, 0.89)
+    // Natural Warm (50): RGB(1.0, 0.828, 0.730) -> Fair Warm Porcelain (100): RGB(1.0, 0.910, 0.835) (+50% saturation)
     targetR = 1.0;
-    targetG = 0.885 + (0.94 - 0.885) * factor;
-    targetB = 0.82 + (0.89 - 0.82) * factor;
+    targetG = 0.828 + (0.910 - 0.828) * factor;
+    targetB = 0.730 + (0.835 - 0.730) * factor;
   }
 
   modelScene.traverse((child) => {

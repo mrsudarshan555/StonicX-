@@ -77,7 +77,11 @@ function ModelRenderer({
   }, [characterSkinTone, modelScene]);
 
   const speechAuthorityRef = useRef<number>(0);
-  const blinkTimerRef = useRef<number>(2.5);
+  const speakingWeightRef = useRef<number>(0);
+  const listeningWeightRef = useRef<number>(0);
+  const thinkingWeightRef = useRef<number>(0);
+
+  const blinkTimerRef = useRef<number>(3.0);
   const isBlinkingRef = useRef<boolean>(false);
   const blinkProgressRef = useRef<number>(0);
 
@@ -109,46 +113,141 @@ function ModelRenderer({
       groupRef.current.rotation.y = 0;
     }
 
-    // 2. IDLE BREATHING & CONVERSATIONAL MICRO-MOTION (Additive to reference base pose)
+    // 2. SMOOTH STATE BLENDING DAMPING
     const isSpeaking = status === 'SPEAKING';
     const isListening = status === 'LISTENING';
+    const isThinking = status === 'THINKING';
 
-    speechAuthorityRef.current = THREE.MathUtils.lerp(
-      speechAuthorityRef.current,
-      isSpeaking ? 1.0 : 0.0,
-      1.0 - Math.exp(-6.0 * delta)
-    );
+    const stateDamping = 1.0 - Math.exp(-6.0 * delta);
+    speakingWeightRef.current = THREE.MathUtils.lerp(speakingWeightRef.current, isSpeaking ? 1.0 : 0.0, stateDamping);
+    listeningWeightRef.current = THREE.MathUtils.lerp(listeningWeightRef.current, isListening ? 1.0 : 0.0, stateDamping);
+    thinkingWeightRef.current = THREE.MathUtils.lerp(thinkingWeightRef.current, isThinking ? 1.0 : 0.0, stateDamping);
+    speechAuthorityRef.current = speakingWeightRef.current;
 
+    // 3. NATURAL HARMONIC BREATHING (~0.23 Hz)
     const breathFrequency = 0.23;
-    const breathCycle = Math.sin(time * 2 * Math.PI * breathFrequency);
+    const breathPhase = time * 2 * Math.PI * breathFrequency;
+    const breathSine = Math.sin(breathPhase);
+    const breathOvertone = Math.sin(breathPhase * 2.0) * 0.2;
+    const breathCycle = breathSine + breathOvertone; // Organic non-linear harmonic breath
 
-    // Natural speaking head nod & conversational micro-gestures (does not scale or warp the character)
-    const speechHeadNod = isSpeaking ? Math.sin(time * 7) * 0.015 * speechAuthorityRef.current : 0;
-    const speechHeadTilt = isSpeaking ? Math.sin(time * 3.5) * 0.012 * speechAuthorityRef.current : (isListening ? 0.015 : 0);
+    // 4. CONVERSATIONAL MICRO-GESTURES & POSTURAL TILTS
+    // Idle subtle gaze micro-drift
+    const idleGazeYaw = Math.sin(time * 0.45) * 0.0035;
+    const idleGazeRoll = Math.cos(time * 0.32) * 0.0025;
+
+    // Speaking organic head nod & conversational micro-tilts
+    const speechNod = (Math.sin(time * 6.5) * 0.018 + Math.sin(time * 3.2) * 0.010) * speakingWeightRef.current;
+    const speechYaw = Math.sin(time * 2.6 + 0.4) * 0.014 * speakingWeightRef.current;
+    const speechRoll = Math.cos(time * 2.1) * 0.010 * speakingWeightRef.current;
+
+    // Listening curious/attentive head tilt & posture
+    const listeningPitch = 0.014 * listeningWeightRef.current;
+    const listeningYaw = -0.018 * listeningWeightRef.current;
+    const listeningRoll = (0.024 + Math.sin(time * 1.5) * 0.003) * listeningWeightRef.current;
+
+    // Thinking subtle contemplative tilt
+    const thinkingPitch = -0.012 * thinkingWeightRef.current;
+    const thinkingYaw = (0.020 + Math.sin(time * 1.1) * 0.003) * thinkingWeightRef.current;
+    const thinkingRoll = -0.026 * thinkingWeightRef.current;
+
+    // Combined additive head & neck rotations
+    const totalHeadPitch = breathCycle * 0.006 + idleGazeRoll * 0.5 + speechNod + listeningPitch + thinkingPitch;
+    const totalHeadYaw = idleGazeYaw + speechYaw + listeningYaw + thinkingYaw;
+    const totalHeadRoll = idleGazeRoll + speechRoll + listeningRoll + thinkingRoll;
+
+    const totalNeckPitch = breathCycle * 0.004 + speechNod * 0.45 + listeningPitch * 0.6 + thinkingPitch * 0.6;
+    const totalNeckYaw = totalHeadYaw * 0.40;
+    const totalNeckRoll = totalHeadRoll * 0.45;
 
     if (bones.neck) {
       const base = targetBaseRotations.get(bones.neck) || restRotations.get(bones.neck) || new THREE.Euler();
       bones.neck.rotation.set(
-        base.x + breathCycle * 0.005 + speechHeadNod * 0.4,
-        base.y + speechHeadTilt * 0.3,
-        base.z
+        base.x + totalNeckPitch,
+        base.y + totalNeckYaw,
+        base.z + totalNeckRoll
       );
     }
     if (bones.head) {
       const base = targetBaseRotations.get(bones.head) || restRotations.get(bones.head) || new THREE.Euler();
       bones.head.rotation.set(
-        base.x + breathCycle * 0.008 + speechHeadNod * 0.6,
-        base.y + speechHeadTilt * 0.7,
-        base.z
+        base.x + totalHeadPitch,
+        base.y + totalHeadYaw,
+        base.z + totalHeadRoll
       );
     }
 
-    // 3. BLINKING
+    // 5. SPINE & CHEST HARMONIC BREATHING & POSTURAL LIFT
+    if (bones.upperBody) {
+      const base = restRotations.get(bones.upperBody) || new THREE.Euler();
+      const spinePitch = base.x + breathCycle * 0.0035 + listeningWeightRef.current * 0.004;
+      bones.upperBody.rotation.set(spinePitch, base.y, base.z);
+    }
+    if (bones.upperBody2) {
+      const base = restRotations.get(bones.upperBody2) || new THREE.Euler();
+      const chestPitch = base.x + breathCycle * 0.0055 + Math.sin(time * 3.2) * 0.003 * speakingWeightRef.current;
+      const chestYaw = base.y + Math.sin(time * 1.8) * 0.002 * speakingWeightRef.current;
+      bones.upperBody2.rotation.set(chestPitch, chestYaw, base.z);
+    }
+
+    // 6. SHOULDERS & ARMS RELAXED NATURAL POSTURE (with breathing sway)
+    const shoulderBreath = breathCycle * 0.004;
+    const shoulderSpeech = Math.sin(time * 3.2) * 0.002 * speakingWeightRef.current;
+    if (bones.shoulderL) {
+      const base = targetBaseRotations.get(bones.shoulderL) || restRotations.get(bones.shoulderL) || new THREE.Euler();
+      bones.shoulderL.rotation.set(base.x + shoulderBreath + shoulderSpeech, base.y, base.z);
+    }
+    if (bones.shoulderR) {
+      const base = targetBaseRotations.get(bones.shoulderR) || restRotations.get(bones.shoulderR) || new THREE.Euler();
+      bones.shoulderR.rotation.set(base.x + shoulderBreath + shoulderSpeech, base.y, base.z);
+    }
+
+    const armBreath = breathCycle * 0.0045;
+    if (bones.armL) {
+      const base = targetBaseRotations.get(bones.armL) || restRotations.get(bones.armL) || new THREE.Euler();
+      bones.armL.rotation.set(base.x + armBreath, base.y, base.z);
+    }
+    if (bones.armR) {
+      const base = targetBaseRotations.get(bones.armR) || restRotations.get(bones.armR) || new THREE.Euler();
+      bones.armR.rotation.set(base.x + armBreath, base.y, base.z);
+    }
+
+    if (bones.elbowL) {
+      const base = targetBaseRotations.get(bones.elbowL) || restRotations.get(bones.elbowL) || new THREE.Euler();
+      bones.elbowL.rotation.set(base.x, base.y, base.z);
+    }
+    if (bones.elbowR) {
+      const base = targetBaseRotations.get(bones.elbowR) || restRotations.get(bones.elbowR) || new THREE.Euler();
+      bones.elbowR.rotation.set(base.x, base.y, base.z);
+    }
+
+    if (bones.wristL) {
+      const base = targetBaseRotations.get(bones.wristL) || restRotations.get(bones.wristL) || new THREE.Euler();
+      bones.wristL.rotation.set(base.x, base.y, base.z);
+    }
+    if (bones.wristR) {
+      const base = targetBaseRotations.get(bones.wristR) || restRotations.get(bones.wristR) || new THREE.Euler();
+      bones.wristR.rotation.set(base.x, base.y, base.z);
+    }
+
+    // 7. SECONDARY HAIR HARMONIC SWAY
+    const hairSwayL = Math.sin(breathPhase - 0.4) * 0.006 + (Math.sin(time * 3.2) * 0.004) * speakingWeightRef.current;
+    const hairSwayR = Math.sin(breathPhase - 0.4) * 0.006 - (Math.sin(time * 3.2) * 0.004) * speakingWeightRef.current;
+    bones.hairBonesL?.forEach((h) => {
+      const rest = restRotations.get(h) || new THREE.Euler();
+      h.rotation.set(rest.x + hairSwayL * 0.5, rest.y, rest.z - hairSwayL);
+    });
+    bones.hairBonesR?.forEach((h) => {
+      const rest = restRotations.get(h) || new THREE.Euler();
+      h.rotation.set(rest.x + hairSwayR * 0.5, rest.y, rest.z + hairSwayR);
+    });
+
+    // 8. NATURAL RANDOMIZED BLINKING (approx. 2.5 - 6.0s intervals)
     blinkTimerRef.current -= delta;
     if (blinkTimerRef.current <= 0 && !isBlinkingRef.current) {
       isBlinkingRef.current = true;
       blinkProgressRef.current = 0;
-      blinkTimerRef.current = 2.4 + Math.random() * 4.5;
+      blinkTimerRef.current = 2.5 + Math.random() * 3.5;
     }
 
     let blinkVal = 0;
@@ -162,7 +261,7 @@ function ModelRenderer({
       }
     }
 
-    // 4. EMOTION EXPRESSIONS
+    // 9. EMOTION EXPRESSIONS
     let currentEmotion: CharacterEmotion = emotion || 'idle';
     if (!emotion) {
       if (status === 'SPEAKING') currentEmotion = 'happy';
@@ -173,17 +272,17 @@ function ModelRenderer({
 
     const targetExpressions = EMOTION_EXPRESSIONS[currentEmotion] || {};
 
-    // 5. VISEME PHONEME LIP-SYNC WITH ORGANIC SPEECH RHYTHM
-    const speechCadenceA = Math.sin(time * 14) * 0.5 + 0.5;
-    const speechCadenceI = Math.sin(time * 18 + 1.0) * 0.5 + 0.5;
-    const speechCadenceO = Math.sin(time * 11 + 2.0) * 0.5 + 0.5;
+    // 10. CONTROLLED NATURAL VISEME LIP-SYNC (PMX Morph-based, no mouth stretching or wide distortion)
+    const speechCadenceA = Math.sin(time * 13) * 0.5 + 0.5;
+    const speechCadenceI = Math.sin(time * 17 + 1.0) * 0.5 + 0.5;
+    const speechCadenceO = Math.sin(time * 10 + 2.0) * 0.5 + 0.5;
 
-    const mouthOpennessA = speechCadenceA * 0.75 * speechAuthorityRef.current;
-    const mouthOpennessI = speechCadenceI * 0.55 * speechAuthorityRef.current;
-    const mouthOpennessO = speechCadenceO * 0.60 * speechAuthorityRef.current;
+    const mouthOpennessA = speechCadenceA * 0.56 * speakingWeightRef.current;
+    const mouthOpennessI = speechCadenceI * 0.40 * speakingWeightRef.current;
+    const mouthOpennessO = speechCadenceO * 0.45 * speakingWeightRef.current;
 
     // Delta-time aware smooth damping factor prevents facial jerk/snapping across rapid status transitions
-    const morphDampingFactor = 1.0 - Math.exp(-7.0 * delta);
+    const morphDampingFactor = 1.0 - Math.exp(-8.0 * delta);
 
     morphsByChannel.forEach((targets, channel) => {
       let channelValue = targetExpressions[channel] || 0;
@@ -193,8 +292,8 @@ function ModelRenderer({
         channelValue = Math.max(channelValue, blinkVal);
       }
 
-      // Responsive speech viseme & expressive speaking animation
-      if (speechAuthorityRef.current > 0.01) {
+      // Responsive speech viseme & expressive speaking animation (controlled natural range)
+      if (speakingWeightRef.current > 0.01) {
         if (channel === 'visemeA' || channel === 'visemeTalk') {
           channelValue = Math.max(channelValue, mouthOpennessA);
         } else if (channel === 'visemeI' || channel === 'visemeE') {
@@ -202,11 +301,11 @@ function ModelRenderer({
         } else if (channel === 'visemeU' || channel === 'visemeO') {
           channelValue = Math.max(channelValue, mouthOpennessO);
         } else if (channel === 'mouthCornerUpL' || channel === 'mouthCornerUpR' || channel === 'mouthSmile') {
-          channelValue = Math.max(channelValue, 0.45 * speechAuthorityRef.current);
+          channelValue = Math.max(channelValue, 0.38 * speakingWeightRef.current);
         } else if (channel === 'smileEyes') {
-          channelValue = Math.max(channelValue, 0.25 * speechAuthorityRef.current);
+          channelValue = Math.max(channelValue, 0.20 * speakingWeightRef.current);
         } else if (channel === 'browUp') {
-          channelValue = Math.max(channelValue, 0.20 * speechAuthorityRef.current);
+          channelValue = Math.max(channelValue, 0.16 * speakingWeightRef.current);
         }
       }
 
@@ -227,57 +326,10 @@ function ModelRenderer({
       meshRestTransforms,
       currentEmotion,
       isSpeaking,
-      speechAuthorityRef.current,
+      speakingWeightRef.current,
       blinkVal,
       time
     );
-
-    // 6. PERMANENT NATURAL RELAXED ARM & HAND POSE (with subtle additive breathing)
-    const armBreathing = Math.sin(time * 2 * Math.PI * 0.23) * 0.005;
-
-    // Shoulders
-    if (bones.shoulderL) {
-      const base = targetBaseRotations.get(bones.shoulderL);
-      if (base) bones.shoulderL.rotation.set(base.x, base.y, base.z);
-    }
-    if (bones.shoulderR) {
-      const base = targetBaseRotations.get(bones.shoulderR);
-      if (base) bones.shoulderR.rotation.set(base.x, base.y, base.z);
-    }
-
-    // Upper Arms
-    if (bones.armL) {
-      const base = targetBaseRotations.get(bones.armL);
-      if (base) {
-        bones.armL.rotation.set(base.x + armBreathing, base.y, base.z);
-      }
-    }
-    if (bones.armR) {
-      const base = targetBaseRotations.get(bones.armR);
-      if (base) {
-        bones.armR.rotation.set(base.x + armBreathing, base.y, base.z);
-      }
-    }
-
-    // Elbows
-    if (bones.elbowL) {
-      const base = targetBaseRotations.get(bones.elbowL);
-      if (base) bones.elbowL.rotation.set(base.x, base.y, base.z);
-    }
-    if (bones.elbowR) {
-      const base = targetBaseRotations.get(bones.elbowR);
-      if (base) bones.elbowR.rotation.set(base.x, base.y, base.z);
-    }
-
-    // Wrists
-    if (bones.wristL) {
-      const base = targetBaseRotations.get(bones.wristL);
-      if (base) bones.wristL.rotation.set(base.x, base.y, base.z);
-    }
-    if (bones.wristR) {
-      const base = targetBaseRotations.get(bones.wristR);
-      if (base) bones.wristR.rotation.set(base.x, base.y, base.z);
-    }
   });
 
   return (

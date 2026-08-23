@@ -18,13 +18,14 @@ import { PrivacyView } from './PrivacyView';
 import { AboutView } from './AboutView';
 import { PermissionsCenterView } from './PermissionsCenterView';
 import { LinkedDevicesView } from './LinkedDevicesView';
+import { OfflineModelsView } from './OfflineModelsView';
 import { WhiteboardTool } from '../tools/WhiteboardTool';
 import { MayraLogo } from '../common/MayraLogo';
 import { 
   Settings as SettingsIcon, User, Globe, Sparkles, 
   Wrench, Bot, ShieldCheck, Database, Cpu, 
   Boxes, Lock, Info, ChevronRight, ArrowLeft, Search, X,
-  Shield, CheckCircle2, Smartphone, PenTool
+  Shield, CheckCircle2, Smartphone, PenTool, HardDrive
 } from 'lucide-react';
 
 interface MayraSettingsScreenProps {
@@ -244,6 +245,14 @@ export const MayraSettingsScreen: React.FC<MayraSettingsScreenProps> = ({
     );
   }
 
+  if (currentSubScreen === 'offline_models') {
+    return (
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
+        <OfflineModelsView onBack={() => setCurrentSubScreen('root')} />
+      </div>
+    );
+  }
+
   if (currentSubScreen === 'whiteboard') {
     return (
       <div className="flex-1 flex flex-col h-full overflow-hidden">
@@ -323,6 +332,13 @@ interface SettingCategorySection {
           title: 'MAYRA',
           subtitle: `${assistantConfig.personaTone.toUpperCase()} • ${assistantConfig.language}`,
           icon: <Sparkles className="w-4 h-4 text-purple-400" />
+        },
+        {
+          id: 'offline_models' as SettingsSubScreen,
+          title: 'Offline AI Models',
+          subtitle: 'llama.cpp GGUF • SmolLM2 & Qwen local inference',
+          badge: 'GGUF',
+          icon: <HardDrive className="w-4 h-4 text-emerald-400" />
         },
         {
           id: 'skills' as SettingsSubScreen,
