@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { AndroidPhoneFrame } from './components/AndroidPhoneFrame';
 import { SettingsSubScreen, ActiveTab, AppAction } from './types';
 import { useMayraAssistant } from './hooks/useMayraAssistant';
@@ -17,6 +17,8 @@ export default function App() {
     setPersonalConfig,
     assistantConfig,
     setAssistantConfig,
+    appearanceConfig,
+    setAppearanceConfig,
     voiceGuardianConfig,
     setVoiceGuardianConfig,
     advancedConfig,
@@ -29,6 +31,15 @@ export default function App() {
     memories,
     setMemories
   } = useMayraSettings();
+
+  // Sync dark class on document element
+  useEffect(() => {
+    if (appearanceConfig.darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [appearanceConfig.darkMode]);
 
   // Decoupled permissions management (14 permissions)
   const {
@@ -69,6 +80,32 @@ export default function App() {
           });
           console.log('[MAYRA Pipeline] ACTION_EXECUTED: SAVE_MEMORY');
           console.log('[MAYRA Pipeline] ACTION_VERIFIED: Memory stored successfully — ' + key + ': ' + value);
+        }
+        break;
+      }
+      case 'AUTO_MEMORY_SAVED': {
+        const { key, value, category } = action.payload || {};
+        if (key && value) {
+          setMemories((prev) => {
+            const exists = prev.find((m) => m.key.toLowerCase() === key.toLowerCase());
+            if (exists) {
+              return prev.map((m) =>
+                m.key.toLowerCase() === key.toLowerCase() ? { ...m, value, timestamp: Date.now() } : m
+              );
+            }
+            return [
+              {
+                id: `mem-auto-${Date.now()}`,
+                key,
+                value,
+                category: category || 'personal',
+                isPinned: false,
+                timestamp: Date.now()
+              },
+              ...prev
+            ];
+          });
+          console.log('[MAYRA Auto Memory] ✦ Personal Fact Saved in Background:', key, '->', value);
         }
         break;
       }
@@ -151,10 +188,15 @@ export default function App() {
     setMessages,
     submitPrompt,
     triggerVoice,
-    clearChat
+    clearChat,
+    activeAgentTask,
+    approveAgentAction,
+    rejectAgentAction,
+    cancelAgentTask
   } = useMayraAssistant({
     personalConfig,
     assistantConfig,
+    memories,
     onExecuteAction: handleExecuteAction
   });
 
@@ -178,14 +220,20 @@ export default function App() {
     }
   };
 
-  const handleSendVisionQuery = (query: string) => {
+  const handleSendVisionQuery = (query: string, image?: { base64: string; mimeType?: string }) => {
     setActivePhoneTab('chat');
     setIsSettingsOpen(false);
-    setInputText(query);
+    if (image) {
+      submitPrompt(query, image);
+    } else {
+      setInputText(query);
+    }
   };
 
   return (
-    <div className="fixed inset-0 w-screen h-[100dvh] min-h-screen overflow-hidden bg-[#070913] text-slate-200 font-sans select-none flex flex-col">
+    <div className={`fixed inset-0 w-screen h-[100dvh] min-h-screen overflow-hidden font-sans select-none flex flex-col transition-colors duration-200 ${
+      appearanceConfig.darkMode ? 'bg-[#070913] text-slate-200' : 'bg-slate-50 text-slate-800'
+    }`}>
       <AndroidPhoneFrame
         activeTab={activePhoneTab}
         setActiveTab={setActivePhoneTab}
@@ -197,15 +245,21 @@ export default function App() {
         isListeningMode={isListeningMode}
         inputText={inputText}
         setInputText={setInputText}
-        onSubmitPrompt={(text) => submitPrompt(text)}
+        onSubmitPrompt={(text, img) => submitPrompt(text, img)}
         onTriggerVoice={triggerVoice}
         onSelectRoutineAction={handleSelectRoutineAction}
         onSendVisionQuery={handleSendVisionQuery}
         onClearChat={clearChat}
+        activeAgentTask={activeAgentTask}
+        onApproveAgentAction={approveAgentAction}
+        onRejectAgentAction={rejectAgentAction}
+        onCancelAgentTask={cancelAgentTask}
         personalConfig={personalConfig}
         setPersonalConfig={setPersonalConfig}
         assistantConfig={assistantConfig}
         setAssistantConfig={setAssistantConfig}
+        appearanceConfig={appearanceConfig}
+        setAppearanceConfig={setAppearanceConfig}
         voiceGuardianConfig={voiceGuardianConfig}
         setVoiceGuardianConfig={setVoiceGuardianConfig}
         advancedConfig={advancedConfig}

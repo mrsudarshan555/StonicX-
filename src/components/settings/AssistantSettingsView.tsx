@@ -242,8 +242,8 @@ export const AssistantSettingsView: React.FC<AssistantSettingsViewProps> = ({
 
             <div className="flex items-center justify-between p-2 bg-[#070913] rounded-xl border border-white/5">
               <div>
-                <div className="text-white font-medium text-xs">Proactive 15s Idle Check-In</div>
-                <div className="text-[9px] text-slate-400">MAYRA gently asks if you need anything when idle on Home</div>
+                <div className="text-white font-medium text-xs">Proactive Silence Check-In</div>
+                <div className="text-[9px] text-slate-400">MAYRA speaks up if silent for 1–2 min, matching your conversation's language</div>
               </div>
               <input
                 type="checkbox"

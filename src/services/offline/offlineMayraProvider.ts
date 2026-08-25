@@ -11,6 +11,7 @@ import { nativeLlmBridge } from './nativeLlmBridge';
 import { MayraNativeBridgeClient } from '../bridge/MayraNativeBridgeClient';
 import { modelDownloadManager } from '../models/ModelDownloadManager';
 import { localModelManager } from './localModelManager';
+import { offlineVoiceService } from './offlineVoiceService';
 import { OfflineGenerationResult, OfflineStreamChunk } from './offlineAiTypes';
 
 export interface OfflineMayraQueryOptions {
@@ -26,6 +27,14 @@ export interface OfflineMayraResponse {
   engine: 'llama.cpp' | 'unavailable';
   tokensPerSecond?: number;
   durationMs?: number;
+  audioBase64?: string;
+}
+
+export interface OfflineVoiceTurnResult {
+  userSpeechText: string;
+  aiResponseText: string;
+  tokensPerSecond: number;
+  durationMs: number;
 }
 
 export class OfflineMayraProvider {
@@ -121,10 +130,88 @@ export class OfflineMayraProvider {
   }
 
   /**
+   * Complete Offline Voice Turn:
+   * 1. Transcribes input 16kHz PCM audio on-device using Whisper STT
+   * 2. Generates response using local llama.cpp LLM
+   * 3. Synthesizes voice audio on-device using Piper TTS
+   * 4. Plays audio and triggers avatar lip-sync/speaking animation
+   */
+  public async processOfflineVoiceTurn(
+    base64Pcm16k: string,
+    options?: {
+      onStatusChange?: (status: 'LISTENING' | 'THINKING' | 'SPEAKING' | 'READY') => void;
+      onUserTranscript?: (text: string) => void;
+      onAiToken?: (token: string, fullText: string) => void;
+    }
+  ): Promise<OfflineVoiceTurnResult> {
+    const startTime = performance.now();
+
+    // 1. Transcription (Whisper STT)
+    options?.onStatusChange?.('THINKING');
+    const sttResult = await offlineVoiceService.transcribeAudio(base64Pcm16k);
+    const userText = sttResult.text.trim();
+
+    if (!userText) {
+      options?.onStatusChange?.('READY');
+      return {
+        userSpeechText: '',
+        aiResponseText: '',
+        tokensPerSecond: 0,
+        durationMs: performance.now() - startTime
+      };
+    }
+
+    options?.onUserTranscript?.(userText);
+
+    // 2. Inference (Local llama.cpp)
+    let accumulatedAiText = '';
+    let finalTps = 0;
+
+    const llmResponse = await this.generateStreamingResponse(userText, {
+      systemPrompt: 'You are MAYRA, a smart and helpful offline voice assistant. Answer concisely in 1-2 friendly spoken sentences.',
+      onToken: (token, acc) => {
+        accumulatedAiText = acc;
+        options?.onAiToken?.(token, acc);
+      }
+    });
+
+    const aiText = llmResponse.text || accumulatedAiText;
+    finalTps = llmResponse.tokensPerSecond || 0;
+
+    // 3. Speech Synthesis (Piper TTS)
+    const ttsResult = await offlineVoiceService.synthesizeSpeech(aiText);
+
+    // 4. Audio Playback & Lip-Sync Animation
+    if (ttsResult.audioBase64) {
+      offlineVoiceService.playRawPcmAudio(
+        ttsResult.audioBase64,
+        ttsResult.sampleRate || 22050,
+        () => {
+          options?.onStatusChange?.('SPEAKING');
+        },
+        () => {
+          options?.onStatusChange?.('READY');
+        }
+      );
+    } else {
+      options?.onStatusChange?.('READY');
+    }
+
+    return {
+      userSpeechText: userText,
+      aiResponseText: aiText,
+      tokensPerSecond: finalTps,
+      durationMs: performance.now() - startTime
+    };
+  }
+
+  /**
    * Unloads any currently active offline model to free device RAM
    */
   public async releaseMemory(): Promise<void> {
     await MayraNativeBridgeClient.unloadLocalModel();
+    await MayraNativeBridgeClient.unloadSTTModel();
+    await MayraNativeBridgeClient.unloadTTSModel();
   }
 }
 

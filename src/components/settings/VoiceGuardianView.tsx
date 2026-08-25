@@ -103,12 +103,12 @@ export const VoiceGuardianView: React.FC<VoiceGuardianViewProps> = ({
         {/* Master Toggles */}
         <div className="p-3.5 bg-[#0C1021] border border-cyan-500/20 rounded-2xl space-y-3">
           
-          <div className="flex items-center justify-between p-2 bg-[#070913] rounded-xl border border-white/5">
+          <div className="flex items-center justify-between p-2.5 bg-[#070913] rounded-xl border border-white/5">
             <div>
-              <div className="text-white font-semibold text-xs flex items-center gap-1.5">
+              <div className="text-white font-extrabold text-xs flex items-center gap-1.5">
                 <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" /> Voice Guardian Master Shield
               </div>
-              <div className="text-[10px] text-slate-400">Verifies speaker voice before executing sensitive commands</div>
+              <div className="text-[10px] font-normal text-slate-400 mt-0.5">Verifies speaker voice before executing sensitive commands</div>
             </div>
             <input
               type="checkbox"
@@ -118,12 +118,12 @@ export const VoiceGuardianView: React.FC<VoiceGuardianViewProps> = ({
             />
           </div>
 
-          <div className="flex items-center justify-between p-2 bg-[#070913] rounded-xl border border-white/5">
+          <div className="flex items-center justify-between p-2.5 bg-[#070913] rounded-xl border border-white/5">
             <div>
-              <div className="text-white font-semibold text-xs flex items-center gap-1.5">
+              <div className="text-white font-extrabold text-xs flex items-center gap-1.5">
                 <ShieldAlert className="w-3.5 h-3.5 text-amber-400" /> Away / Guard Mode
               </div>
-              <div className="text-[10px] text-slate-400">Monitors room audio for unauthorized voice triggers when away</div>
+              <div className="text-[10px] font-normal text-slate-400 mt-0.5">Monitors room audio for unauthorized voice triggers when away</div>
             </div>
             <input
               type="checkbox"
@@ -137,7 +137,7 @@ export const VoiceGuardianView: React.FC<VoiceGuardianViewProps> = ({
 
         {/* Listen Mode Policy */}
         <div className="p-3.5 bg-[#0C1021] border border-white/10 rounded-2xl space-y-3">
-          <div className="text-[11px] font-mono font-bold text-slate-200 uppercase flex items-center gap-1.5">
+          <div className="text-[10px] font-mono font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
             <UserCheck className="w-3.5 h-3.5 text-cyan-400" /> Authorized Listen Mode
           </div>
 
@@ -152,12 +152,12 @@ export const VoiceGuardianView: React.FC<VoiceGuardianViewProps> = ({
                 onClick={() => onChange({ listenMode: mode.id as any })}
                 className={`p-2.5 rounded-xl border text-center transition-colors ${
                   config.listenMode === mode.id
-                    ? 'bg-cyan-950/40 border-cyan-500 text-cyan-300 font-semibold'
-                    : 'bg-[#070913] border-white/5 text-slate-400 hover:text-slate-200'
+                    ? 'bg-cyan-950/40 border-cyan-500 text-cyan-300 font-extrabold ring-1 ring-cyan-400/40'
+                    : 'bg-[#070913] border-white/5 text-slate-400 hover:text-slate-200 font-normal'
                 }`}
               >
-                <div className="text-xs">{mode.label}</div>
-                <div className="text-[9px] text-slate-400 mt-0.5">{mode.desc}</div>
+                <div className="text-xs font-extrabold">{mode.label}</div>
+                <div className="text-[9px] font-normal text-slate-400 mt-0.5">{mode.desc}</div>
               </button>
             ))}
           </div>
@@ -166,13 +166,13 @@ export const VoiceGuardianView: React.FC<VoiceGuardianViewProps> = ({
         {/* Voice Matching Strictness Slider */}
         <div className="p-3.5 bg-[#0C1021] border border-white/10 rounded-2xl space-y-2">
           <div className="flex justify-between items-center">
-            <div className="text-[11px] font-mono font-bold text-slate-200 uppercase">
+            <div className="text-[10px] font-mono font-bold text-cyan-400 uppercase tracking-wider">
               Voice Matching Strictness
             </div>
             <span className="text-[11px] font-mono text-cyan-400 font-bold">{config.strictness}%</span>
           </div>
 
-          <p className="text-[10px] text-slate-400">
+          <p className="text-[10px] font-normal text-slate-400">
             Higher thresholds reduce false positives in noisy environments.
           </p>
 
@@ -186,7 +186,7 @@ export const VoiceGuardianView: React.FC<VoiceGuardianViewProps> = ({
             className="w-full accent-cyan-400"
           />
 
-          <div className="flex justify-between text-[9px] font-mono text-slate-500">
+          <div className="flex justify-between text-[9px] font-mono font-normal text-slate-400">
             <span>60% (Permissive)</span>
             <span>80% (Balanced)</span>
             <span>95% (High Security)</span>
@@ -196,7 +196,7 @@ export const VoiceGuardianView: React.FC<VoiceGuardianViewProps> = ({
         {/* Enrolled Voices List & Management */}
         <div className="p-3.5 bg-[#0C1021] border border-white/10 rounded-2xl space-y-3">
           <div className="flex justify-between items-center">
-            <div className="text-[11px] font-mono font-bold text-slate-200 uppercase flex items-center gap-1.5">
+            <div className="text-[10px] font-mono font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
               <Mic className="w-3.5 h-3.5 text-cyan-400" /> Enrolled Voice Profiles ({config.enrolledVoices.length})
             </div>
             <button

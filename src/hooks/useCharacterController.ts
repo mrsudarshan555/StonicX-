@@ -133,8 +133,35 @@ export function useCharacterController(assistantStatus: AssistantStatus) {
     // Disabled to prevent resizing
   }, []);
 
+  // Hand-controlled rotation delta (from Barehands gesture)
+  const rotateByDelta = useCallback((deltaDegrees: number) => {
+    if (lockState.isLocked) return;
+    setTransform(prev => {
+      let newRotY = prev.rotationY + deltaDegrees;
+      if (newRotY > 180) newRotY -= 360;
+      if (newRotY < -180) newRotY += 360;
+      return {
+        ...prev,
+        rotationY: newRotY
+      };
+    });
+  }, [lockState.isLocked]);
+
+  // Two-hand scale delta (from Barehands gesture)
+  const scaleByDelta = useCallback((scaleRatio: number) => {
+    if (lockState.isLocked) return;
+    setTransform(prev => {
+      const newZoom = Math.max(0.7, Math.min(1.6, (prev.zoom || 1.0) * scaleRatio));
+      return {
+        ...prev,
+        zoom: newZoom
+      };
+    });
+  }, [lockState.isLocked]);
+
   return {
     transform,
+    setTransform,
     lockState,
     modelMetadata,
     isDragging,
@@ -142,6 +169,8 @@ export function useCharacterController(assistantStatus: AssistantStatus) {
     setShowModelInfo,
     toggleLock,
     resetTransform,
+    rotateByDelta,
+    scaleByDelta,
     handlePointerDown,
     handlePointerMove,
     handlePointerUp,

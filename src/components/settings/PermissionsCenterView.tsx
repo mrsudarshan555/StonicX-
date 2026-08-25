@@ -25,6 +25,7 @@ export const PermissionsCenterView: React.FC<PermissionsCenterViewProps> = ({
     | 'default_assistant_picker'
     | 'battery_dialog'
     | 'accessibility_dialog'
+    | 'notification_dialog'
     | 'permission_detail'
   >(null);
 
@@ -45,6 +46,8 @@ export const PermissionsCenterView: React.FC<PermissionsCenterViewProps> = ({
       setActiveSystemModal('battery_dialog');
     } else if (perm.id === 'accessibility_service') {
       setActiveSystemModal('accessibility_dialog');
+    } else if (perm.id === 'notification_access') {
+      setActiveSystemModal('notification_dialog');
     } else {
       // Toggle permission state between granted and not_granted for standard permissions
       setPermissions((prev) =>
@@ -139,17 +142,17 @@ export const PermissionsCenterView: React.FC<PermissionsCenterViewProps> = ({
               {/* Left Details */}
               <div className="flex-1 pr-1 space-y-1">
                 <div className="flex items-center gap-1.5">
-                  <h3 className="text-xs font-semibold text-white font-sans tracking-wide">
+                  <h3 className="text-xs font-extrabold text-white font-sans tracking-wide">
                     {perm.name}
                   </h3>
                   {perm.isRequired && (
-                    <span className="text-[9px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-1.5 py-0.2 rounded">
-                      Required
+                    <span className="text-[8px] font-mono font-bold text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-1.5 py-0.2 rounded">
+                      REQUIRED
                     </span>
                   )}
                 </div>
 
-                <p className="text-[11px] text-slate-400 leading-relaxed font-sans">
+                <p className="text-[11px] font-normal text-slate-400 leading-relaxed font-sans">
                   {perm.description}
                 </p>
               </div>
@@ -479,6 +482,35 @@ export const PermissionsCenterView: React.FC<PermissionsCenterViewProps> = ({
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold"
               >
                 Enable in Settings
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 6. Android Notification Listener Service Dialog */}
+      {activeSystemModal === 'notification_dialog' && (
+        <div className="absolute inset-0 bg-black/75 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-[320px] bg-[#121528] text-white rounded-3xl p-5 border border-white/10 shadow-2xl space-y-4 font-sans">
+            <h3 className="text-sm font-bold text-white">Allow Notification Access?</h3>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Allowing <span className="font-bold text-purple-400">MAYRA</span> to read device notifications lets her announce incoming WhatsApp/SMS messages and caller names hands-free.
+            </p>
+            <div className="p-3 bg-indigo-950/30 border border-indigo-500/30 rounded-xl text-[11px] text-indigo-200">
+              Android will open Special App Access settings for you to toggle MAYRA on.
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => setActiveSystemModal(null)}
+                className="px-4 py-2 text-xs text-slate-400 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleGrantPermission('notification_access')}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold"
+              >
+                Open Settings
               </button>
             </div>
           </div>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Sparkles, Terminal, ShieldCheck, Heart, Info, Code2, ArrowLeft } from 'lucide-react';
+import { MayraLogo } from '../common/MayraLogo';
 
 interface AboutViewProps {
   onBack: () => void;
@@ -35,12 +36,10 @@ export const AboutView: React.FC<AboutViewProps> = ({ onBack }) => {
         
         {/* Brand Orb Hero */}
         <div className="p-6 bg-[#0C1021] border border-blue-500/30 rounded-3xl flex flex-col items-center justify-center text-center space-y-3">
-          <div className="w-16 h-16 bg-gradient-to-br from-blue-600 via-indigo-600 to-cyan-500 rounded-2xl flex items-center justify-center font-bold text-white text-2xl font-mono shadow-lg shadow-blue-500/30 border border-blue-400/40">
-            M
-          </div>
+          <MayraLogo size={64} showGlow={true} />
           <div>
-            <h1 className="text-lg font-extrabold text-white font-mono tracking-tight">MAYRA</h1>
-            <p className="text-xs text-blue-400 font-mono">Personal AI Assistant</p>
+            <h1 className="text-lg font-extrabold text-white font-mono tracking-tight">★𝐌₳ᎽⱤ₳ ᥫ᭡</h1>
+            <p className="text-xs text-cyan-400 font-mono">Personal AI Assistant</p>
           </div>
           <div className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[10px] font-mono text-slate-300">
             Version 2.0.0-phase2 (Settings & System UI)

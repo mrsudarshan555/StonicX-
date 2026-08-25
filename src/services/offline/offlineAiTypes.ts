@@ -84,7 +84,11 @@ export interface NativeLLMBridgeStatus {
   isSupported: boolean;
   isEngineInitialized: boolean;
   isModelLoaded?: boolean;
+  isSTTLoaded?: boolean;
+  isTTSLoaded?: boolean;
   activeModelId: string | null;
+  activeSTTModelId?: string | null;
+  activeTTSModelId?: string | null;
   availableVramMb?: number;
   deviceRamMb?: number;
   lowMemoryAlert?: boolean;
@@ -100,6 +104,19 @@ export interface NativeDeviceMemory {
 export interface NativeDeviceStorage {
   totalStorageMb: number;
   freeStorageMb: number;
+}
+
+export interface OfflineSpeechRecognitionResult {
+  text: string;
+  language: string;
+  durationMs: number;
+  confidence: number;
+}
+
+export interface OfflineSpeechSynthesisResult {
+  audioBase64: string;
+  sampleRate: number;
+  durationMs: number;
 }
 
 /**
@@ -130,6 +147,18 @@ export interface MayraNativeLLMInterface {
   ): Promise<void>;
   cancelGeneration(): Promise<boolean>;
   cancelOfflineGeneration?(): Promise<boolean>;
+
+  // Offline Voice Engine methods (STT / Whisper & TTS / Piper)
+  isVoiceEngineAvailable?(): Promise<boolean> | boolean;
+  loadSTTModel?(modelPath: string): Promise<boolean>;
+  unloadSTTModel?(): Promise<boolean>;
+  isSTTLoaded?(): Promise<boolean> | boolean;
+  transcribeAudio?(base64Pcm: string, sampleRate: number): Promise<string | OfflineSpeechRecognitionResult>;
+  loadTTSModel?(modelPath: string): Promise<boolean>;
+  unloadTTSModel?(): Promise<boolean>;
+  isTTSLoaded?(): Promise<boolean> | boolean;
+  synthesizeSpeech?(text: string, voice?: string): Promise<string | OfflineSpeechSynthesisResult>;
+  streamSynthesizeSpeech?(text: string): Promise<void>;
 }
 
 declare global {
@@ -138,6 +167,8 @@ declare global {
     __mayra_native_on_token?: (token: string, accumulated: string, tps: number) => void;
     __mayra_native_on_complete?: (fullText: string, tpsOrPromptTokens?: number, completionTokens?: number, durationMs?: number, tps?: number) => void;
     __mayra_native_on_error?: (errorMessage: string) => void;
+    __mayra_native_on_tts_chunk?: (audioBase64Pcm: string, isFinished: boolean) => void;
+    __mayra_native_on_stt_result?: (text: string, isFinal: boolean) => void;
   }
 }
 

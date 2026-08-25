@@ -29,6 +29,13 @@ export const MICROPHONE_CONSTRAINTS: MediaStreamConstraints = {
 // Global registry of active microphone streams for clean session tear-down
 let activeMicStream: MediaStream | null = null;
 
+// Audio Analyser node for live speech/mic waveform visualization
+let globalAudioAnalyser: AnalyserNode | null = null;
+
+export function getSpeechAudioAnalyser(): AnalyserNode | null {
+  return globalAudioAnalyser;
+}
+
 // Microphone capture state
 let micAudioContext: AudioContext | null = null;
 let micSourceNode: MediaStreamAudioSourceNode | null = null;
@@ -97,6 +104,15 @@ export async function startPcm16kCapture(onPcmChunk: (base64Pcm: string) => void
     }
 
     micSourceNode = micAudioContext.createMediaStreamSource(stream);
+    
+    // Create AnalyserNode for audio visualization
+    try {
+      globalAudioAnalyser = micAudioContext.createAnalyser();
+      globalAudioAnalyser.fftSize = 64;
+      globalAudioAnalyser.smoothingTimeConstant = 0.8;
+      micSourceNode.connect(globalAudioAnalyser);
+    } catch (e) {}
+
     // Buffer size 2048 samples (~128ms @ 16kHz)
     micScriptProcessor = micAudioContext.createScriptProcessor(2048, 1, 1);
 
@@ -196,6 +212,17 @@ export function schedulePcm24kChunk(
 
     const source = audioCtx.createBufferSource();
     source.buffer = audioBuffer;
+
+    // Connect to global analyser for speech waveform animation
+    try {
+      if (!globalAudioAnalyser || globalAudioAnalyser.context !== audioCtx) {
+        globalAudioAnalyser = audioCtx.createAnalyser();
+        globalAudioAnalyser.fftSize = 64;
+        globalAudioAnalyser.smoothingTimeConstant = 0.8;
+      }
+      source.connect(globalAudioAnalyser);
+    } catch (e) {}
+
     source.connect(audioCtx.destination);
 
     const currentTime = audioCtx.currentTime;
@@ -539,9 +566,9 @@ export function detectLanguage(text: string): MayraLanguage {
  */
 export function getDynamicGreeting(name: string = 'Zafer', lang: MayraLanguage = 'en'): string {
   if (lang === 'hi') {
-    return `Hii ${name}, kya haal hai? Aaj hum kya karein?`;
+    return `Hii ${name}, kaise hain aap? Aaj hum kya karein?`;
   }
-  return `Hi ${name}, how's it going? What are we doing today?`;
+  return `Hi ${name}, how are you? What should we do today?`;
 }
 
 /**

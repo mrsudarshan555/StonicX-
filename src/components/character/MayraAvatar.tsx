@@ -14,7 +14,9 @@ import {
   updateFacialAnimations,
   EMOTION_EXPRESSIONS, 
   ResolvedMorphTarget, 
-  CharacterSkeletonBones 
+  CharacterSkeletonBones,
+  EvelynMasterAnimationOrchestrator,
+  CharacterBonesMap
 } from './myraCharacterEngine';
 import { 
   PMX_MODEL_URL, 
@@ -76,15 +78,6 @@ function ModelRenderer({
     tuneCharacterMaterials(modelScene, characterSkinTone, initialMaterialsRef.current);
   }, [characterSkinTone, modelScene]);
 
-  const speechAuthorityRef = useRef<number>(0);
-  const speakingWeightRef = useRef<number>(0);
-  const listeningWeightRef = useRef<number>(0);
-  const thinkingWeightRef = useRef<number>(0);
-
-  const blinkTimerRef = useRef<number>(3.0);
-  const isBlinkingRef = useRef<boolean>(false);
-  const blinkProgressRef = useRef<number>(0);
-
   const morphsByChannel = useMemo(() => {
     const map = new Map<string, ResolvedMorphTarget[]>();
     morphTargets.forEach((target) => {
@@ -96,11 +89,141 @@ function ModelRenderer({
     return map;
   }, [morphTargets]);
 
+  // Model bone container for accumulator
+  const modelBoneContainer = useMemo(() => {
+    const bonesList: THREE.Object3D[] = [];
+    const boneIndexByName = new Map<string, number>();
+
+    modelScene.traverse((child) => {
+      if (child.name) {
+        bonesList.push(child);
+        boneIndexByName.set(child.name, bonesList.length - 1);
+      }
+    });
+
+    return {
+      bones: bonesList,
+      boneIndexByName,
+      mesh: modelScene
+    };
+  }, [modelScene]);
+
+  // Morph target consumer
+  const { morphConsumer, morphMap } = useMemo(() => {
+    const morphMap: Record<string, string> = {
+      blink: 'blink',
+      blinkL: 'blinkL',
+      blinkR: 'blinkR',
+      visemeA: 'visemeA',
+      visemeI: 'visemeI',
+      visemeU: 'visemeU',
+      visemeE: 'visemeE',
+      visemeO: 'visemeO',
+      visemeTalk: 'visemeTalk',
+      smileEyes: 'smileEyes',
+      eyesWideL: 'eyesWideL',
+      eyesWideR: 'eyesWideR',
+      eyesHalf: 'eyesHalf',
+      eyesSad: 'eyesSad',
+      lowerLidUp: 'lowerLidUp',
+      eyeOuterDown: 'eyeOuterDown',
+      browUp: 'browUp',
+      browSad: 'browSad',
+      browSerious: 'browSerious',
+      browTroubled: 'browTroubled',
+      browAngryR: 'browAngryR',
+      browDown: 'browDown',
+      mouthSmile: 'mouthSmile',
+      mouthCornerUpL: 'mouthCornerUpL',
+      mouthCornerUpR: 'mouthCornerUpR',
+      mouthCornerDownL: 'mouthCornerDownL',
+      mouthCornerDownR: 'mouthCornerDownR',
+      mouthWiden: 'mouthWiden',
+      mouthNarrow: 'mouthNarrow',
+      mouthShiftLeft: 'mouthShiftLeft',
+      mouthShiftRight: 'mouthShiftRight',
+      teethUp: 'teethUp',
+      teethDown: 'teethDown'
+    };
+
+    const currentMorphInfluences = new Map<string, number>();
+
+    const morphConsumer = {
+      add(channelOrKey: number | string | undefined, weight: number) {
+        if (!channelOrKey) return;
+        const key = String(channelOrKey);
+        const curr = currentMorphInfluences.get(key) || 0;
+        currentMorphInfluences.set(key, Math.max(curr, weight));
+      },
+      flush(morphsByChannelMap: Map<string, ResolvedMorphTarget[]>, delta: number) {
+        const morphDampingFactor = 1.0 - Math.exp(-8.0 * delta);
+        morphsByChannelMap.forEach((targets, channel) => {
+          const targetVal = currentMorphInfluences.get(channel) || 0;
+          targets.forEach((target) => {
+            if (target.mesh.morphTargetInfluences) {
+              const curr = target.mesh.morphTargetInfluences[target.targetIndex] || 0;
+              target.mesh.morphTargetInfluences[target.targetIndex] = THREE.MathUtils.lerp(
+                curr,
+                targetVal,
+                morphDampingFactor
+              );
+            }
+          });
+        });
+        currentMorphInfluences.clear();
+      }
+    };
+
+    return { morphConsumer, morphMap };
+  }, []);
+
+  const bonesMap = useMemo<CharacterBonesMap>(() => {
+    return {
+      center: bones.upperBody?.parent?.name || 'センター',
+      waist: '下半身',
+      upperBody: bones.upperBody?.name || '上半身',
+      upperBody2: bones.upperBody2?.name || '上半身2',
+      neck: bones.neck?.name || '首',
+      head: bones.head?.name || '頭',
+      shoulderL: bones.shoulderL?.name || '左肩',
+      shoulderR: bones.shoulderR?.name || '右肩',
+      armL: bones.armL?.name || '左腕',
+      armR: bones.armR?.name || '右腕',
+      elbowL: bones.elbowL?.name || '左ひじ',
+      elbowR: bones.elbowR?.name || '右ひじ',
+      wristL: bones.wristL?.name || '左手首',
+      wristR: bones.wristR?.name || '右手首'
+    };
+  }, [bones]);
+
+  const hairBonesL = useMemo(() => bones.hairBonesL.map((b) => b.name).filter(Boolean), [bones]);
+  const hairBonesR = useMemo(() => bones.hairBonesR.map((b) => b.name).filter(Boolean), [bones]);
+
+  // Master Orchestrator Instance
+  const orchestrator = useMemo(() => {
+    const orch = new EvelynMasterAnimationOrchestrator(
+      modelBoneContainer,
+      morphConsumer,
+      morphMap,
+      bonesMap,
+      hairBonesL,
+      hairBonesR
+    );
+
+    // Bake reference base pose (natural arm slope, elbows, wrists) into rest pose
+    targetBaseRotations.forEach((targetEuler, bone) => {
+      orch.pose.bakeIntoRest(bone.name, targetEuler.x, targetEuler.y, targetEuler.z);
+    });
+
+    return orch;
+  }, [modelBoneContainer, morphConsumer, morphMap, bonesMap, hairBonesL, hairBonesR, targetBaseRotations]);
+
   useFrame((state, delta) => {
     if (!groupRef.current) return;
     const time = state.clock.getElapsedTime();
+    const clampedDelta = Math.min(delta, 0.1); // Protect against tab switch spikes
 
-    // 1. BASE POSITION & SCALE: Strictly locked to 1.0x with zero whole-body scaling or distortion
+    // 1. Root group transform handling (drag, rotation, locked scale)
     groupRef.current.position.set(0, 0, 0);
     groupRef.current.scale.set(1.0, 1.0, 1.0);
     groupRef.current.rotation.x = 0;
@@ -113,223 +236,44 @@ function ModelRenderer({
       groupRef.current.rotation.y = 0;
     }
 
-    // 2. SMOOTH STATE BLENDING DAMPING
-    const isSpeaking = status === 'SPEAKING';
-    const isListening = status === 'LISTENING';
-    const isThinking = status === 'THINKING';
-
-    const stateDamping = 1.0 - Math.exp(-6.0 * delta);
-    speakingWeightRef.current = THREE.MathUtils.lerp(speakingWeightRef.current, isSpeaking ? 1.0 : 0.0, stateDamping);
-    listeningWeightRef.current = THREE.MathUtils.lerp(listeningWeightRef.current, isListening ? 1.0 : 0.0, stateDamping);
-    thinkingWeightRef.current = THREE.MathUtils.lerp(thinkingWeightRef.current, isThinking ? 1.0 : 0.0, stateDamping);
-    speechAuthorityRef.current = speakingWeightRef.current;
-
-    // 3. NATURAL HARMONIC BREATHING (~0.23 Hz)
-    const breathFrequency = 0.23;
-    const breathPhase = time * 2 * Math.PI * breathFrequency;
-    const breathSine = Math.sin(breathPhase);
-    const breathOvertone = Math.sin(breathPhase * 2.0) * 0.2;
-    const breathCycle = breathSine + breathOvertone; // Organic non-linear harmonic breath
-
-    // 4. CONVERSATIONAL MICRO-GESTURES & POSTURAL TILTS
-    // Idle subtle gaze micro-drift
-    const idleGazeYaw = Math.sin(time * 0.45) * 0.0035;
-    const idleGazeRoll = Math.cos(time * 0.32) * 0.0025;
-
-    // Speaking organic head nod & conversational micro-tilts
-    const speechNod = (Math.sin(time * 6.5) * 0.018 + Math.sin(time * 3.2) * 0.010) * speakingWeightRef.current;
-    const speechYaw = Math.sin(time * 2.6 + 0.4) * 0.014 * speakingWeightRef.current;
-    const speechRoll = Math.cos(time * 2.1) * 0.010 * speakingWeightRef.current;
-
-    // Listening curious/attentive head tilt & posture
-    const listeningPitch = 0.014 * listeningWeightRef.current;
-    const listeningYaw = -0.018 * listeningWeightRef.current;
-    const listeningRoll = (0.024 + Math.sin(time * 1.5) * 0.003) * listeningWeightRef.current;
-
-    // Thinking subtle contemplative tilt
-    const thinkingPitch = -0.012 * thinkingWeightRef.current;
-    const thinkingYaw = (0.020 + Math.sin(time * 1.1) * 0.003) * thinkingWeightRef.current;
-    const thinkingRoll = -0.026 * thinkingWeightRef.current;
-
-    // Combined additive head & neck rotations
-    const totalHeadPitch = breathCycle * 0.006 + idleGazeRoll * 0.5 + speechNod + listeningPitch + thinkingPitch;
-    const totalHeadYaw = idleGazeYaw + speechYaw + listeningYaw + thinkingYaw;
-    const totalHeadRoll = idleGazeRoll + speechRoll + listeningRoll + thinkingRoll;
-
-    const totalNeckPitch = breathCycle * 0.004 + speechNod * 0.45 + listeningPitch * 0.6 + thinkingPitch * 0.6;
-    const totalNeckYaw = totalHeadYaw * 0.40;
-    const totalNeckRoll = totalHeadRoll * 0.45;
-
-    if (bones.neck) {
-      const base = targetBaseRotations.get(bones.neck) || restRotations.get(bones.neck) || new THREE.Euler();
-      bones.neck.rotation.set(
-        base.x + totalNeckPitch,
-        base.y + totalNeckYaw,
-        base.z + totalNeckRoll
-      );
-    }
-    if (bones.head) {
-      const base = targetBaseRotations.get(bones.head) || restRotations.get(bones.head) || new THREE.Euler();
-      bones.head.rotation.set(
-        base.x + totalHeadPitch,
-        base.y + totalHeadYaw,
-        base.z + totalHeadRoll
-      );
-    }
-
-    // 5. SPINE & CHEST HARMONIC BREATHING & POSTURAL LIFT
-    if (bones.upperBody) {
-      const base = restRotations.get(bones.upperBody) || new THREE.Euler();
-      const spinePitch = base.x + breathCycle * 0.0035 + listeningWeightRef.current * 0.004;
-      bones.upperBody.rotation.set(spinePitch, base.y, base.z);
-    }
-    if (bones.upperBody2) {
-      const base = restRotations.get(bones.upperBody2) || new THREE.Euler();
-      const chestPitch = base.x + breathCycle * 0.0055 + Math.sin(time * 3.2) * 0.003 * speakingWeightRef.current;
-      const chestYaw = base.y + Math.sin(time * 1.8) * 0.002 * speakingWeightRef.current;
-      bones.upperBody2.rotation.set(chestPitch, chestYaw, base.z);
-    }
-
-    // 6. SHOULDERS & ARMS RELAXED NATURAL POSTURE (with breathing sway)
-    const shoulderBreath = breathCycle * 0.004;
-    const shoulderSpeech = Math.sin(time * 3.2) * 0.002 * speakingWeightRef.current;
-    if (bones.shoulderL) {
-      const base = targetBaseRotations.get(bones.shoulderL) || restRotations.get(bones.shoulderL) || new THREE.Euler();
-      bones.shoulderL.rotation.set(base.x + shoulderBreath + shoulderSpeech, base.y, base.z);
-    }
-    if (bones.shoulderR) {
-      const base = targetBaseRotations.get(bones.shoulderR) || restRotations.get(bones.shoulderR) || new THREE.Euler();
-      bones.shoulderR.rotation.set(base.x + shoulderBreath + shoulderSpeech, base.y, base.z);
-    }
-
-    const armBreath = breathCycle * 0.0045;
-    if (bones.armL) {
-      const base = targetBaseRotations.get(bones.armL) || restRotations.get(bones.armL) || new THREE.Euler();
-      bones.armL.rotation.set(base.x + armBreath, base.y, base.z);
-    }
-    if (bones.armR) {
-      const base = targetBaseRotations.get(bones.armR) || restRotations.get(bones.armR) || new THREE.Euler();
-      bones.armR.rotation.set(base.x + armBreath, base.y, base.z);
-    }
-
-    if (bones.elbowL) {
-      const base = targetBaseRotations.get(bones.elbowL) || restRotations.get(bones.elbowL) || new THREE.Euler();
-      bones.elbowL.rotation.set(base.x, base.y, base.z);
-    }
-    if (bones.elbowR) {
-      const base = targetBaseRotations.get(bones.elbowR) || restRotations.get(bones.elbowR) || new THREE.Euler();
-      bones.elbowR.rotation.set(base.x, base.y, base.z);
-    }
-
-    if (bones.wristL) {
-      const base = targetBaseRotations.get(bones.wristL) || restRotations.get(bones.wristL) || new THREE.Euler();
-      bones.wristL.rotation.set(base.x, base.y, base.z);
-    }
-    if (bones.wristR) {
-      const base = targetBaseRotations.get(bones.wristR) || restRotations.get(bones.wristR) || new THREE.Euler();
-      bones.wristR.rotation.set(base.x, base.y, base.z);
-    }
-
-    // 7. SECONDARY HAIR HARMONIC SWAY
-    const hairSwayL = Math.sin(breathPhase - 0.4) * 0.006 + (Math.sin(time * 3.2) * 0.004) * speakingWeightRef.current;
-    const hairSwayR = Math.sin(breathPhase - 0.4) * 0.006 - (Math.sin(time * 3.2) * 0.004) * speakingWeightRef.current;
-    bones.hairBonesL?.forEach((h) => {
-      const rest = restRotations.get(h) || new THREE.Euler();
-      h.rotation.set(rest.x + hairSwayL * 0.5, rest.y, rest.z - hairSwayL);
-    });
-    bones.hairBonesR?.forEach((h) => {
-      const rest = restRotations.get(h) || new THREE.Euler();
-      h.rotation.set(rest.x + hairSwayR * 0.5, rest.y, rest.z + hairSwayR);
-    });
-
-    // 8. NATURAL RANDOMIZED BLINKING (approx. 2.5 - 6.0s intervals)
-    blinkTimerRef.current -= delta;
-    if (blinkTimerRef.current <= 0 && !isBlinkingRef.current) {
-      isBlinkingRef.current = true;
-      blinkProgressRef.current = 0;
-      blinkTimerRef.current = 2.5 + Math.random() * 3.5;
-    }
-
-    let blinkVal = 0;
-    if (isBlinkingRef.current) {
-      blinkProgressRef.current += delta / 0.15;
-      if (blinkProgressRef.current >= 1.0) {
-        isBlinkingRef.current = false;
-        blinkVal = 0;
-      } else {
-        blinkVal = Math.sin(blinkProgressRef.current * Math.PI);
-      }
-    }
-
-    // 9. EMOTION EXPRESSIONS
+    // Resolve current emotion & status
     let currentEmotion: CharacterEmotion = emotion || 'idle';
     if (!emotion) {
       if (status === 'SPEAKING') currentEmotion = 'happy';
       else if (status === 'THINKING') currentEmotion = 'thinking';
       else if (status === 'LISTENING') currentEmotion = 'curious';
-      else currentEmotion = 'happy';
+      else currentEmotion = 'idle';
     }
 
-    const targetExpressions = EMOTION_EXPRESSIONS[currentEmotion] || {};
-
-    // 10. CONTROLLED NATURAL VISEME LIP-SYNC (PMX Morph-based, no mouth stretching or wide distortion)
-    const speechCadenceA = Math.sin(time * 13) * 0.5 + 0.5;
-    const speechCadenceI = Math.sin(time * 17 + 1.0) * 0.5 + 0.5;
-    const speechCadenceO = Math.sin(time * 10 + 2.0) * 0.5 + 0.5;
-
-    const mouthOpennessA = speechCadenceA * 0.56 * speakingWeightRef.current;
-    const mouthOpennessI = speechCadenceI * 0.40 * speakingWeightRef.current;
-    const mouthOpennessO = speechCadenceO * 0.45 * speakingWeightRef.current;
-
-    // Delta-time aware smooth damping factor prevents facial jerk/snapping across rapid status transitions
-    const morphDampingFactor = 1.0 - Math.exp(-8.0 * delta);
-
-    morphsByChannel.forEach((targets, channel) => {
-      let channelValue = targetExpressions[channel] || 0;
-
-      // Natural eye blinking
-      if (channel === 'blink' || channel === 'blinkL' || channel === 'blinkR') {
-        channelValue = Math.max(channelValue, blinkVal);
-      }
-
-      // Responsive speech viseme & expressive speaking animation (controlled natural range)
-      if (speakingWeightRef.current > 0.01) {
-        if (channel === 'visemeA' || channel === 'visemeTalk') {
-          channelValue = Math.max(channelValue, mouthOpennessA);
-        } else if (channel === 'visemeI' || channel === 'visemeE') {
-          channelValue = Math.max(channelValue, mouthOpennessI);
-        } else if (channel === 'visemeU' || channel === 'visemeO') {
-          channelValue = Math.max(channelValue, mouthOpennessO);
-        } else if (channel === 'mouthCornerUpL' || channel === 'mouthCornerUpR' || channel === 'mouthSmile') {
-          channelValue = Math.max(channelValue, 0.38 * speakingWeightRef.current);
-        } else if (channel === 'smileEyes') {
-          channelValue = Math.max(channelValue, 0.20 * speakingWeightRef.current);
-        } else if (channel === 'browUp') {
-          channelValue = Math.max(channelValue, 0.16 * speakingWeightRef.current);
-        }
-      }
-
-      targets.forEach((target) => {
-        if (target.mesh.morphTargetInfluences) {
-          const currentInfluence = target.mesh.morphTargetInfluences[target.targetIndex] || 0;
-          target.mesh.morphTargetInfluences[target.targetIndex] = THREE.MathUtils.lerp(
-            currentInfluence,
-            channelValue,
-            morphDampingFactor
-          );
-        }
-      });
+    // 2. THE ONE CENTRAL MASTER PER-FRAME UPDATE FUNCTION (WA.update)
+    // Executes in exact mandated sequence on every single animation frame:
+    // pose.begin() -> breathing/idle -> body-language -> micro-behaviors -> gaze -> constraints -> hair -> expression -> lip-sync -> pose.apply() -> updateMatrixWorld(true)
+    orchestrator.update({
+      delta: clampedDelta,
+      status: status as 'IDLE' | 'LISTENING' | 'THINKING' | 'SPEAKING',
+      emotion: currentEmotion,
+      userLookTarget: state.camera.position,
+      audioAnalyser: null
     });
 
+    // 3. Flush morph targets to mesh morphTargetInfluences
+    morphConsumer.flush(morphsByChannel, clampedDelta);
+
+    // 4. Update facial mesh details
+    const isSpeaking = status === 'SPEAKING';
+    const speechWeight = isSpeaking ? 1.0 : 0.0;
     updateFacialAnimations(
       facialFeatures,
       meshRestTransforms,
       currentEmotion,
       isSpeaking,
-      speakingWeightRef.current,
-      blinkVal,
+      speechWeight,
+      0,
       time
     );
+
+    // 5. Update scene matrices
+    modelScene.updateMatrixWorld(true);
   });
 
   return (

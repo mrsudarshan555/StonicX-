@@ -126,6 +126,20 @@
             </intent-filter>
         </service>
 
+        <!-- MAYRA InCallService (Call Handling & Automation) -->
+        <service
+            android:name="com.mayra.assistant.services.MayraInCallService"
+            android:label="MAYRA Call Manager"
+            android:permission="android.permission.BIND_INCALL_SERVICE"
+            android:exported="true">
+            <meta-data
+                android:name="android.telecom.IN_CALL_SERVICE_UI"
+                android:value="true" />
+            <intent-filter>
+                <action android:name="android.telecom.InCallService" />
+            </intent-filter>
+        </service>
+
     </application>
 
 </manifest>

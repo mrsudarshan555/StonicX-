@@ -3,11 +3,13 @@ import {
   SettingsSubScreen, UserPersonalConfig, AssistantConfig, 
   VoiceGuardianConfig, AdvancedConfig, SkillItem, SubAgentItem, 
   IntegrationItem, MemoryItem, ChatMessage, CountryCodeItem,
-  PermissionItem
+  PermissionItem, AppearanceConfig
 } from '../../types';
 import { PersonalSettingsView } from './PersonalSettingsView';
 import { CountryCodeView } from './CountryCodeView';
 import { AssistantSettingsView } from './AssistantSettingsView';
+import { AppearanceView } from './AppearanceView';
+import { OrbCustomizationView } from './OrbCustomizationView';
 import { VoiceGuardianView } from './VoiceGuardianView';
 import { SkillsView } from './SkillsView';
 import { SubAgentsView } from './SubAgentsView';
@@ -17,15 +19,18 @@ import { OptionalIntegrationsView } from './OptionalIntegrationsView';
 import { PrivacyView } from './PrivacyView';
 import { AboutView } from './AboutView';
 import { PermissionsCenterView } from './PermissionsCenterView';
+import { NativeIntegrationView } from './NativeIntegrationView';
 import { LinkedDevicesView } from './LinkedDevicesView';
 import { OfflineModelsView } from './OfflineModelsView';
 import { WhiteboardTool } from '../tools/WhiteboardTool';
 import { MayraLogo } from '../common/MayraLogo';
+import { ORB_STYLES, ORB_COLORS } from '../character/MayraOrb';
 import { 
   Settings as SettingsIcon, User, Globe, Sparkles, 
   Wrench, Bot, ShieldCheck, Database, Cpu, 
   Boxes, Lock, Info, ChevronRight, ArrowLeft, Search, X,
-  Shield, CheckCircle2, Smartphone, PenTool, HardDrive
+  Shield, CheckCircle2, Smartphone, PenTool, HardDrive,
+  Palette, Moon, Sun
 } from 'lucide-react';
 
 interface MayraSettingsScreenProps {
@@ -37,6 +42,8 @@ interface MayraSettingsScreenProps {
   setPersonalConfig: React.Dispatch<React.SetStateAction<UserPersonalConfig>>;
   assistantConfig: AssistantConfig;
   setAssistantConfig: React.Dispatch<React.SetStateAction<AssistantConfig>>;
+  appearanceConfig: AppearanceConfig;
+  setAppearanceConfig: React.Dispatch<React.SetStateAction<AppearanceConfig>>;
   voiceGuardianConfig: VoiceGuardianConfig;
   setVoiceGuardianConfig: React.Dispatch<React.SetStateAction<VoiceGuardianConfig>>;
   advancedConfig: AdvancedConfig;
@@ -62,6 +69,8 @@ export const MayraSettingsScreen: React.FC<MayraSettingsScreenProps> = ({
   setPersonalConfig,
   assistantConfig,
   setAssistantConfig,
+  appearanceConfig,
+  setAppearanceConfig,
   voiceGuardianConfig,
   setVoiceGuardianConfig,
   advancedConfig,
@@ -79,6 +88,7 @@ export const MayraSettingsScreen: React.FC<MayraSettingsScreenProps> = ({
   setMessages
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const isDark = appearanceConfig?.darkMode ?? true;
 
   // Handle toggles
   const handleToggleSkill = (id: string) => {
@@ -114,6 +124,42 @@ export const MayraSettingsScreen: React.FC<MayraSettingsScreenProps> = ({
           permissions={permissions}
           setPermissions={setPermissions}
           onBack={() => setCurrentSubScreen('root')}
+        />
+      </div>
+    );
+  }
+
+  if (currentSubScreen === 'native_integration') {
+    return (
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
+        <NativeIntegrationView
+          onBack={() => setCurrentSubScreen('root')}
+        />
+      </div>
+    );
+  }
+
+  if (currentSubScreen === 'appearance') {
+    return (
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
+        <AppearanceView
+          config={appearanceConfig}
+          onChange={(updated) => setAppearanceConfig(prev => ({ ...prev, ...updated }))}
+          onBack={() => setCurrentSubScreen('root')}
+          onNavigateToOrbStudio={() => setCurrentSubScreen('orb_customization')}
+        />
+      </div>
+    );
+  }
+
+  if (currentSubScreen === 'orb_customization') {
+    return (
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
+        <OrbCustomizationView
+          config={appearanceConfig}
+          onChange={(updated) => setAppearanceConfig(prev => ({ ...prev, ...updated }))}
+          onBack={() => setCurrentSubScreen('root')}
+          onNavigateToAppearance={() => setCurrentSubScreen('appearance')}
         />
       </div>
     );
@@ -294,10 +340,39 @@ interface SettingCategorySection {
 
   const grantedPermissionsCount = permissions.filter(p => p.status === 'granted' || p.id === 'default_assistant').length;
 
+  const currentOrbStyleName = ORB_STYLES.find(s => s.id === appearanceConfig.orbStyle)?.name || 'Mayra Glow';
+  const currentOrbColorName = ORB_COLORS[appearanceConfig.orbColor]?.name || 'Cyan';
+
   const settingSections: SettingCategorySection[] = [
+    {
+      category: 'APPEARANCE & PERSONALIZATION',
+      items: [
+        {
+          id: 'orb_customization' as SettingsSubScreen,
+          title: 'Orb Customization Studio',
+          subtitle: `Rendering physics • Rainbow hue spectrum • Voice visualizer & aura edge`,
+          badge: 'STUDIO',
+          icon: <Sparkles className="w-4 h-4 text-cyan-400" />
+        },
+        {
+          id: 'appearance' as SettingsSubScreen,
+          title: 'Appearance & Display',
+          subtitle: `${isDark ? 'Dark Mode' : 'Light Mode'} • ${currentOrbStyleName} • ${appearanceConfig.orbSize}dp`,
+          badge: isDark ? 'DARK' : 'LIGHT',
+          icon: <Palette className="w-4 h-4 text-purple-400" />
+        }
+      ]
+    },
     {
       category: 'PERMISSIONS & SYSTEM ACCESS',
       items: [
+        {
+          id: 'native_integration' as SettingsSubScreen,
+          title: 'Android System Integration',
+          subtitle: 'Calls • Direct SMS • WhatsApp auto-tap • Notifications',
+          badge: 'KOTLIN',
+          icon: <Smartphone className="w-4 h-4 text-cyan-400" />
+        },
         {
           id: 'permissions' as SettingsSubScreen,
           title: 'Permissions Center',
@@ -329,7 +404,7 @@ interface SettingCategorySection {
       items: [
         {
           id: 'assistant' as SettingsSubScreen,
-          title: 'MAYRA',
+          title: 'MAYRA AI Core',
           subtitle: `${assistantConfig.personaTone.toUpperCase()} • ${assistantConfig.language}`,
           icon: <Sparkles className="w-4 h-4 text-purple-400" />
         },
@@ -436,37 +511,61 @@ interface SettingCategorySection {
   })).filter(section => section.items.length > 0);
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#070914] text-slate-100 relative select-none">
+    <div className={`flex-1 flex flex-col h-full relative select-none transition-colors duration-200 ${
+      isDark ? 'bg-[#070914] text-slate-100' : 'bg-slate-50 text-slate-900'
+    }`}>
       
       {/* Top Header */}
-      <div className="h-14 px-4 bg-[#080B1C] border-b border-white/5 flex items-center justify-between z-10 shrink-0">
+      <div className={`h-14 px-4 border-b flex items-center justify-between z-10 shrink-0 ${
+        isDark ? 'bg-[#080B1C] border-white/5' : 'bg-white border-slate-200 shadow-sm'
+      }`}>
         <div className="flex items-center gap-3">
           <button
             onClick={onCloseSettings}
-            className="p-2 -ml-1 text-slate-400 hover:text-white rounded-full hover:bg-white/5 active:scale-95 transition-all"
+            className={`p-2 -ml-1 rounded-full transition-all active:scale-95 ${
+              isDark ? 'text-slate-400 hover:text-white hover:bg-white/5' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
             title="Back to Home"
           >
-            <ArrowLeft className="w-5 h-5 text-white" />
+            <ArrowLeft className={`w-5 h-5 ${isDark ? 'text-white' : 'text-slate-800'}`} />
           </button>
 
           <div className="flex items-center gap-2">
-            <h1 className="text-base font-bold font-sans text-white tracking-tight">
+            <h1 className={`text-base font-bold font-sans tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
               Settings
             </h1>
           </div>
         </div>
 
-        {/* MAYRA Logo Badge */}
-        <div className="flex items-center gap-1.5 px-2 py-1 bg-white/5 border border-white/10 rounded-full">
-          <MayraLogo size={18} showGlow={false} />
-          <span className="text-[10px] font-mono font-bold text-white tracking-wider">
-            MAYRA
-          </span>
+        {/* Quick Dark Mode Switch & MAYRA Logo Badge */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setAppearanceConfig(prev => ({ ...prev, darkMode: !prev.darkMode }))}
+            className={`p-1.5 rounded-full border transition-all ${
+              isDark 
+                ? 'bg-white/5 border-white/10 text-purple-300 hover:bg-white/10' 
+                : 'bg-slate-100 border-slate-200 text-amber-600 hover:bg-slate-200'
+            }`}
+            title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          >
+            {isDark ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+          </button>
+
+          <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full border ${
+            isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-100 border-slate-200 text-slate-800'
+          }`}>
+            <MayraLogo size={18} showGlow={false} />
+            <span className="text-[10px] font-mono font-bold tracking-wider">
+              MAYRA
+            </span>
+          </div>
         </div>
       </div>
 
       {/* Search Input Bar */}
-      <div className="p-3 bg-[#080B1C]/50 border-b border-white/5 shrink-0">
+      <div className={`p-3 border-b shrink-0 ${
+        isDark ? 'bg-[#080B1C]/50 border-white/5' : 'bg-white border-slate-200'
+      }`}>
         <div className="relative">
           <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
@@ -474,12 +573,16 @@ interface SettingCategorySection {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search settings..."
-            className="w-full pl-9 pr-8 py-1.5 bg-[#0D1124] border border-white/5 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-hidden focus:border-blue-500/50 transition-colors"
+            className={`w-full pl-9 pr-8 py-1.5 border rounded-xl text-xs transition-colors focus:outline-hidden ${
+              isDark 
+                ? 'bg-[#0D1124] border-white/5 text-white placeholder-slate-500 focus:border-blue-500/50' 
+                : 'bg-slate-100 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-blue-500'
+            }`}
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
             >
               <X className="w-3 h-3" />
             </button>
@@ -491,43 +594,65 @@ interface SettingCategorySection {
       <div className="flex-1 overflow-y-auto p-3 space-y-4 scrollbar-thin scrollbar-thumb-white/10">
         {filteredSections.map((section) => (
           <div key={section.category} className="space-y-1">
-            <h3 className="text-[9px] font-mono font-bold text-blue-400/80 tracking-widest px-2 uppercase">
+            <h3 className={`text-[10px] font-mono font-bold tracking-widest px-2 uppercase ${
+              isDark ? 'text-cyan-400' : 'text-cyan-600'
+            }`}>
               {section.category}
             </h3>
 
-            <div className="bg-[#0C1021] border border-white/5 rounded-2xl overflow-hidden divide-y divide-white/5">
+            <div className={`border rounded-2xl overflow-hidden divide-y ${
+              isDark 
+                ? 'bg-[#0C1021] border-white/5 divide-white/5 shadow-lg' 
+                : 'bg-white border-slate-200 divide-slate-100 shadow-xs'
+            }`}>
               {section.items.map((item) => (
                 <button
                   key={item.id}
                   onClick={() => setCurrentSubScreen(item.id)}
-                  className="w-full p-3 flex items-center justify-between hover:bg-white/5 active:bg-white/10 transition-colors text-left group"
+                  className={`w-full p-3 flex items-center justify-between active:scale-[0.99] transition-colors text-left group ${
+                    isDark ? 'hover:bg-white/5' : 'hover:bg-slate-50'
+                  }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-xl bg-white/5 group-hover:bg-blue-500/10 transition-colors">
+                    <div className={`p-2 rounded-xl transition-colors ${
+                      isDark ? 'bg-white/5 group-hover:bg-cyan-500/10' : 'bg-slate-100 group-hover:bg-cyan-50'
+                    }`}>
                       {item.icon}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-white group-hover:text-blue-300 transition-colors font-sans">
+                        <span className={`text-xs font-extrabold font-sans transition-colors ${
+                          isDark ? 'text-white group-hover:text-cyan-300' : 'text-slate-900 group-hover:text-cyan-700'
+                        }`}>
                           {item.title}
                         </span>
                         {item.badge && (
                           <span className={`text-[8px] font-mono px-1.5 py-0.2 rounded font-bold ${
-                            item.badge.includes('OFF') || item.badge.includes('0/') 
-                              ? 'bg-slate-800 text-slate-400' 
+                            item.badge === 'STUDIO'
+                              ? 'bg-cyan-950/90 text-cyan-300 border border-cyan-400/40'
+                              : item.badge === 'DARK'
+                              ? 'bg-purple-950/80 text-purple-300 border border-purple-500/30'
+                              : item.badge === 'LIGHT'
+                              ? 'bg-amber-100 text-amber-700 border border-amber-300'
+                              : item.badge.includes('OFF') || item.badge.includes('0/') 
+                              ? isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-200 text-slate-600'
                               : 'bg-emerald-950/80 text-emerald-400 border border-emerald-500/30'
                           }`}>
                             {item.badge}
                           </span>
                         )}
                       </div>
-                      <p className="text-[10px] text-slate-400 font-sans line-clamp-1">
+                      <p className={`text-[10px] font-normal font-sans line-clamp-1 mt-0.5 ${
+                        isDark ? 'text-slate-400' : 'text-slate-500'
+                      }`}>
                         {item.subtitle}
                       </p>
                     </div>
                   </div>
 
-                  <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 group-hover:translate-x-0.5 transition-all" />
+                  <ChevronRight className={`w-4 h-4 group-hover:translate-x-0.5 transition-all ${
+                    isDark ? 'text-slate-500 group-hover:text-slate-300' : 'text-slate-400 group-hover:text-slate-700'
+                  }`} />
                 </button>
               ))}
             </div>
@@ -538,3 +663,4 @@ interface SettingCategorySection {
     </div>
   );
 };
+

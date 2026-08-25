@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { MemoryItem, FamilyContact } from '../../types';
+import { MemoryItem, FamilyContact, MemoryCategory } from '../../types';
 import { INITIAL_FAMILY_CONTACTS } from '../../data/defaultData';
+import { MemoryVaultService } from '../../services/memory/memoryVaultService';
 import { 
   Brain, Plus, Search, Pin, Trash2, 
   Tag, Clock, Check, Download, Sparkles, Filter,
-  Users, Phone, MessageSquare, Send, Heart, Edit3, X
+  Users, Phone, MessageSquare, Send, Heart, Edit3, X, Star, Shield, FolderGit2
 } from 'lucide-react';
 
 interface MemoriesScreenProps {
@@ -45,32 +46,53 @@ export const MemoriesScreen: React.FC<MemoriesScreenProps> = ({
   // New memory form state
   const [newKey, setNewKey] = useState('');
   const [newValue, setNewValue] = useState('');
-  const [newCategory, setNewCategory] = useState<MemoryItem['category']>('personal');
+  const [newCategory, setNewCategory] = useState<MemoryCategory>('personal');
+  const [newImportance, setNewImportance] = useState<number>(3);
+  const [newTagsInput, setNewTagsInput] = useState<string>('');
 
-  const categories = ['all', 'personal', 'preference', 'system', 'task'];
+  const categories: ('all' | MemoryCategory)[] = ['all', 'personal', 'preference', 'project', 'task', 'system', 'episodic'];
 
-  const filteredMemories = memories.filter((m) => {
-    const matchesCat = selectedCategory === 'all' || m.category === selectedCategory;
-    const matchesSearch =
-      m.key.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.value.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCat && matchesSearch;
-  });
+  // Memory Vault Hybrid Search Integration
+  const searchResults = React.useMemo(() => {
+    if (!searchQuery.trim()) {
+      return memories
+        .filter((m) => selectedCategory === 'all' || m.category === selectedCategory)
+        .map((item) => ({ item, score: item.isPinned ? 5 : item.importance || 3, matchReasons: [] }));
+    }
+    return MemoryVaultService.search(memories, {
+      query: searchQuery,
+      categories: selectedCategory === 'all' ? undefined : [selectedCategory as MemoryCategory],
+      limit: 50,
+      minImportance: 1
+    });
+  }, [memories, searchQuery, selectedCategory]);
 
   const handleSaveMemory = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newKey.trim() || !newValue.trim()) return;
 
+    const parsedTags = newTagsInput
+      .split(/[,#\s]+/)
+      .map(t => t.trim().toLowerCase())
+      .filter(t => t.length > 0);
+
     onAddMemory({
       key: newKey.trim(),
       value: newValue.trim(),
       category: newCategory,
-      isPinned: false
+      isPinned: false,
+      importance: newImportance,
+      tags: parsedTags.length > 0 ? parsedTags : [newCategory],
+      source: 'user_explicit'
     });
 
     setNewKey('');
     setNewValue('');
+    setNewTagsInput('');
+    setNewImportance(3);
     setShowAddModal(false);
+    setActionNotice(`Memory record saved: "${newKey.trim()}"`);
+    setTimeout(() => setActionNotice(null), 3000);
   };
 
   const handleAddFamilyContact = (e: React.FormEvent) => {
@@ -208,8 +230,13 @@ export const MemoriesScreen: React.FC<MemoriesScreenProps> = ({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-semibold text-white tracking-wide">
-              Learned Facts ({filteredMemories.length})
+              Memory Vault ({searchResults.length})
             </h3>
+            {searchQuery && (
+              <span className="text-[10px] font-mono text-purple-300">
+                Hybrid Ranked
+              </span>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -219,8 +246,8 @@ export const MemoriesScreen: React.FC<MemoriesScreenProps> = ({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search facts & preferences..."
-                className="w-full bg-[#0C1024] border border-white/10 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-400 outline-none focus:border-purple-400 transition-colors"
+                placeholder="Search vault, tags, preferences..."
+                className="w-full bg-[#0C1024] border border-white/10 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-400 outline-none focus:border-purple-400 transition-colors font-sans"
               />
             </div>
 
@@ -242,29 +269,46 @@ export const MemoriesScreen: React.FC<MemoriesScreenProps> = ({
           </div>
 
           <div className="space-y-2.5">
-            {filteredMemories.length === 0 ? (
+            {searchResults.length === 0 ? (
               <div className="p-6 text-center border border-white/5 rounded-2xl bg-[#0C1024]/50">
-                <p className="text-xs text-slate-400 font-sans">No matching facts found.</p>
+                <p className="text-xs text-slate-400 font-sans">No matching memories found in vault.</p>
               </div>
             ) : (
-              filteredMemories.map((mem) => (
+              searchResults.map(({ item: mem, matchReasons, score }) => (
                 <div
                   key={mem.id}
-                  className={`p-3.5 bg-[#0C1024] border rounded-2xl transition-all space-y-1.5 shadow-sm ${
+                  className={`p-3.5 bg-[#0C1024] border rounded-2xl transition-all space-y-2 shadow-sm ${
                     mem.isPinned ? 'border-purple-500/40 bg-purple-950/15' : 'border-white/10 hover:border-white/20'
                   }`}
                 >
                   <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-white">{mem.key}</span>
-                      {mem.isPinned && (
-                        <span className="px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 text-[9px] font-medium flex items-center gap-0.5">
-                          <Pin className="w-2.5 h-2.5" /> Pinned
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs font-semibold text-white">{mem.key}</span>
+                        <span className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-slate-300 text-[8px] font-mono uppercase">
+                          {mem.category}
                         </span>
-                      )}
+                        {mem.isPinned && (
+                          <span className="px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 text-[9px] font-medium flex items-center gap-0.5">
+                            <Pin className="w-2.5 h-2.5" /> Pinned
+                          </span>
+                        )}
+                      </div>
+                      
+                      {/* Importance level */}
+                      <div className="flex items-center gap-1 text-[10px] text-amber-400">
+                        {Array.from({ length: Math.min(5, Math.max(1, mem.importance || 3)) }).map((_, idx) => (
+                          <Star key={idx} className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
+                        ))}
+                        {searchQuery && (
+                          <span className="text-[9px] font-mono text-purple-300 ml-1.5">
+                            Score: {score} {matchReasons.length > 0 ? `(${matchReasons.join(', ')})` : ''}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 shrink-0">
                       <button
                         onClick={() => onTogglePin(mem.id)}
                         className={`p-1.5 rounded-lg transition-colors ${
@@ -287,6 +331,17 @@ export const MemoriesScreen: React.FC<MemoriesScreenProps> = ({
                   <p className="text-xs text-slate-300 font-sans leading-relaxed">
                     {mem.value}
                   </p>
+
+                  {/* Tags */}
+                  {mem.tags && mem.tags.length > 0 && (
+                    <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                      {mem.tags.map((t, idx) => (
+                        <span key={idx} className="text-[9px] font-mono text-cyan-400/80 bg-cyan-950/40 px-1.5 py-0.5 rounded border border-cyan-500/20">
+                          #{t}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))
             )}
@@ -395,18 +450,51 @@ export const MemoriesScreen: React.FC<MemoriesScreenProps> = ({
               />
             </div>
 
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[10px] font-mono text-slate-400 uppercase block mb-1">Category</label>
+                <select
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value as any)}
+                  className="w-full bg-[#070913] border border-white/10 rounded-xl p-2 text-xs text-white font-mono outline-none focus:border-purple-500"
+                >
+                  <option value="personal">Personal</option>
+                  <option value="preference">Preference</option>
+                  <option value="project">Project</option>
+                  <option value="task">Task</option>
+                  <option value="system">System</option>
+                  <option value="episodic">Episodic</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-mono text-slate-400 uppercase block mb-1">Importance (1-5)</label>
+                <div className="flex items-center gap-1 bg-[#070913] border border-white/10 rounded-xl p-1.5 justify-around">
+                  {[1, 2, 3, 4, 5].map((lvl) => (
+                    <button
+                      key={lvl}
+                      type="button"
+                      onClick={() => setNewImportance(lvl)}
+                      className={`p-1 rounded text-[10px] font-mono transition-colors ${
+                        newImportance >= lvl ? 'text-amber-400 font-bold' : 'text-slate-600'
+                      }`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
             <div>
-              <label className="text-[10px] font-mono text-slate-400 uppercase block mb-1">Category</label>
-              <select
-                value={newCategory}
-                onChange={(e) => setNewCategory(e.target.value as any)}
-                className="w-full bg-[#070913] border border-white/10 rounded-xl p-2 text-xs text-white font-mono outline-none focus:border-purple-500"
-              >
-                <option value="personal">Personal</option>
-                <option value="preference">Preference</option>
-                <option value="system">System</option>
-                <option value="task">Task</option>
-              </select>
+              <label className="text-[10px] font-mono text-slate-400 uppercase block mb-1">Tags (Comma or space separated)</label>
+              <input
+                type="text"
+                value={newTagsInput}
+                onChange={(e) => setNewTagsInput(e.target.value)}
+                placeholder="e.g. backend, priority, home"
+                className="w-full bg-[#070913] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:border-purple-500 font-sans"
+              />
             </div>
 
             <div>

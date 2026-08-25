@@ -6,9 +6,12 @@ export type ActiveTab = PhoneNavTab;
 export type SettingsSubScreen = 
   | 'root'
   | 'permissions'
+  | 'native_integration'
   | 'personal'
   | 'country_code'
   | 'assistant'
+  | 'appearance'
+  | 'orb_customization'
   | 'skills'
   | 'sub_agents'
   | 'voice_guardian'
@@ -21,7 +24,10 @@ export type SettingsSubScreen =
   | 'privacy'
   | 'about';
 
-export type AssistantStatus = 'READY' | 'LISTENING' | 'THINKING' | 'SPEAKING';
+export type AssistantStatus = 'READY' | 'LISTENING' | 'THINKING' | 'SPEAKING' | 'INTERRUPTED' | 'ERROR';
+export type ConversationState = AssistantStatus;
+
+export type MayraLanguage = 'en' | 'hi';
 
 export type CharacterEmotion = 
   | 'idle'
@@ -66,15 +72,61 @@ export interface ChatMessage {
   text?: string;
   content?: string;
   timestamp: number;
+  image?: {
+    url?: string;
+    mimeType?: string;
+    name?: string;
+    base64?: string;
+  };
+  autoMemoryTag?: string;
 }
+
+export type MemoryCategory = 'preference' | 'personal' | 'system' | 'task' | 'general' | 'project' | 'episodic';
 
 export interface MemoryItem {
   id: string;
   key: string;
   value: string;
-  category: 'preference' | 'personal' | 'system' | 'task' | 'general';
+  category: MemoryCategory;
   timestamp: number;
   isPinned?: boolean;
+  
+  // Advanced Memory Vault Extensions (Jarvis Architecture)
+  importance?: number; // 1 to 5 scale
+  tags?: string[];
+  lastAccessedAt?: number;
+  accessCount?: number;
+  source?: 'user_explicit' | 'assistant_inferred' | 'project_context' | 'system';
+  projectId?: string;
+  confidenceScore?: number; // 0.0 to 1.0
+  isArchived?: boolean;
+}
+
+export interface MemoryQueryOptions {
+  query?: string;
+  categories?: MemoryCategory[];
+  projectId?: string;
+  minImportance?: number;
+  limit?: number;
+  includeArchived?: boolean;
+  recencyWeight?: number; // 0.0 to 1.0 (default 0.3)
+}
+
+export interface MemorySearchResult {
+  item: MemoryItem;
+  score: number;
+  matchReasons: string[];
+}
+
+export interface MemoryExtractionResult {
+  shouldMemorize: boolean;
+  key?: string;
+  value?: string;
+  category?: MemoryCategory;
+  importance?: number;
+  tags?: string[];
+  confidence: number;
+  reason?: string;
 }
 
 export interface SkillItem {
@@ -175,6 +227,48 @@ export interface AssistantConfig {
   characterSkinTone: number; // 0 (Fair/Gora) to 100 (Dark/Kala), default 50 (Natural Medium)
 }
 
+export type OrbStyleType = 
+  | 'particle_swirl'
+  | 'pulse_reactor'
+  | 'particle_swarm'
+  | 'liquid_core'
+  | 'grid_globe'
+  | 'nova_ring'
+  | 'soundwave_ripple'
+  | 'cyber_matrix'
+  | 'quantum_helix'
+  | 'aurora_waves'
+  | 'polyhedron_crystal'
+  | 'supernova'
+  | 'neural_synapse'
+  | 'plasma_vortex'
+  | 'luminous_glow'
+  // Legacy aliases for backward compatibility
+  | 'glow' 
+  | 'nova' 
+  | 'grid' 
+  | 'pulse' 
+  | 'nebula';
+
+export type OrbColorType = 'spectrum' | 'cyan' | 'blue' | 'violet' | 'orange' | 'emerald' | 'pink' | 'gold';
+
+export type OrbTypePreset = 'classic' | 'energy' | 'neon' | 'hologram';
+
+export type AppLauncherIconVariant = 'cyan_default' | 'amber_gold' | 'violet_cosmic' | 'stealth_obsidian';
+
+export interface AppearanceConfig {
+  darkMode: boolean;
+  orbStyle: OrbStyleType;
+  orbColor: OrbColorType;
+  orbSize: number; // Size in dp (44 to 140, default 64)
+  useOrbOnHome: boolean; // Replace 3D character with animated orb on Home screen
+  orbType?: OrbTypePreset; // 'classic' | 'energy' | 'neon' | 'hologram'
+  customHue?: number; // 0 to 360 continuous hue, undefined = use orbColor preset
+  voiceVisualizerEnabled?: boolean; // ambient orb dot grows when speaking
+  auraBorderMode?: boolean; // rotating glowing border around phone screen edge
+  launcherIconVariant?: AppLauncherIconVariant; // launcher icon theme
+}
+
 export interface LinkedDeviceItem {
   id: string;
   name: string;
@@ -222,6 +316,7 @@ export type CharacterState = 'READY' | 'LISTENING' | 'THINKING' | 'SPEAKING';
 
 export type AppActionType = 
   | 'SAVE_MEMORY'
+  | 'AUTO_MEMORY_SAVED'
   | 'DELETE_MEMORY'
   | 'CLEAR_MEMORIES'
   | 'NAVIGATE_TAB'
@@ -268,5 +363,57 @@ export interface CharacterModelMetadata {
   hasFacialMorphs?: boolean;
   textures: string[];
   status: 'source_ready' | 'conversion_pipeline' | 'loaded' | 'fallback_active';
+}
+
+// Agent V1 Types
+export type AgentPermissionLevel = 'SAFE' | 'CONFIRMATION_REQUIRED' | 'BLOCKED';
+
+export type AgentTaskStatus = 
+  | 'IDLE'
+  | 'PLANNING'
+  | 'EXECUTING'
+  | 'WAITING_CONFIRMATION'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'FAILED';
+
+export interface AgentToolCall {
+  id?: string;
+  name: string;
+  args: Record<string, any>;
+  step: number;
+  timestamp: number;
+}
+
+export interface AgentToolResult {
+  name: string;
+  args?: Record<string, any>;
+  result?: any;
+  error?: string;
+  step: number;
+  timestamp: number;
+}
+
+export interface AgentPendingConfirmation {
+  toolName: string;
+  args: Record<string, any>;
+  actionDescription: string;
+  targetRecipient?: string;
+  contentPreview?: string;
+  impactLevel: 'low' | 'medium' | 'high';
+}
+
+export interface AgentTaskContext {
+  taskId: string;
+  originalUserRequest: string;
+  status: AgentTaskStatus;
+  currentStep: number;
+  totalSteps?: number;
+  stepDescription?: string;
+  toolCalls: AgentToolCall[];
+  toolResults: AgentToolResult[];
+  pendingConfirmation: AgentPendingConfirmation | null;
+  isCancelled: boolean;
+  finalResult: string | null;
 }
 

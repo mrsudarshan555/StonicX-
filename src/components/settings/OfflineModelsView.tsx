@@ -276,222 +276,235 @@ export const OfflineModelsView: React.FC<OfflineModelsViewProps> = ({ onBack }) 
         </div>
 
         {/* Model Catalog Cards */}
-        <div className="space-y-3">
-          <h3 className="text-[10px] font-mono font-bold text-blue-400/80 tracking-widest px-1 uppercase">
-            Available GGUF Model Packs
-          </h3>
+        <div className="space-y-4">
+          <div className="space-y-3">
+            <h3 className="text-[10px] font-mono font-bold text-blue-400/80 tracking-widest px-1 uppercase flex items-center gap-1.5">
+              <Terminal className="w-3.5 h-3.5 text-blue-400" />
+              Available GGUF LLM & Voice Packs
+            </h3>
 
-          {models.map((model) => {
-            const isDownloading = model.status === 'DOWNLOADING';
-            const isVerifying = model.status === 'VERIFYING';
-            const isReady = model.status === 'READY';
-            const isLoaded = model.isLoadedInMemory;
-            const isTesting = isRunningDiagnostic === model.id;
+            {models.map((model) => {
+              const isDownloading = model.status === 'DOWNLOADING';
+              const isVerifying = model.status === 'VERIFYING';
+              const isReady = model.status === 'READY';
+              const isLoaded = model.isLoadedInMemory;
+              const isTesting = isRunningDiagnostic === model.id;
 
-            return (
-              <div
-                key={model.id}
-                className={`bg-[#0C1021] border rounded-2xl p-4 space-y-3 transition-all ${
-                  isLoaded 
-                    ? 'border-emerald-500/40 shadow-lg shadow-emerald-950/20' 
-                    : isReady
-                    ? 'border-white/10'
-                    : 'border-white/5'
-                }`}
-              >
-                {/* Top Row: Title & Badge */}
-                <div className="flex items-start justify-between gap-2">
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h4 className="text-xs font-bold text-white font-sans">
-                        {model.name}
-                      </h4>
-                      {model.category === 'primary_chat' && (
-                        <span className="text-[8px] font-mono font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30 px-1.5 py-0.2 rounded">
-                          PRIMARY
-                        </span>
-                      )}
-                      {model.category === 'fallback_chat' && (
-                        <span className="text-[8px] font-mono font-bold bg-slate-700 text-slate-300 px-1.5 py-0.2 rounded">
-                          FALLBACK
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-slate-400 font-sans leading-relaxed">
-                      {model.description}
-                    </p>
-                  </div>
-
-                  <div className="shrink-0">
-                    {getStatusBadge(model.status)}
-                  </div>
-                </div>
-
-                {/* Model Metadata Spec Grid */}
-                <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-[#070914]/60 border border-white/5 text-[10px] font-mono text-slate-400">
-                  <div>
-                    <span className="text-slate-500 block text-[9px]">FILE SIZE</span>
-                    <span className="text-slate-200 font-semibold">{model.sizeFormatted}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block text-[9px]">FORMAT / QUANT</span>
-                    <span className="text-slate-200 font-semibold">{model.format} • {model.quantization}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block text-[9px]">RAM BUDGET</span>
-                    <span className="text-slate-200 font-semibold">{model.estimatedRamFormatted}</span>
-                  </div>
-                </div>
-
-                {/* Download Progress Bar */}
-                {(isDownloading || isVerifying) && (
-                  <div className="space-y-1.5 p-3 rounded-xl bg-blue-950/20 border border-blue-500/20">
-                    <div className="flex items-center justify-between text-[10px] font-mono">
-                      <span className="text-blue-300 font-bold flex items-center gap-1.5">
-                        {isVerifying ? (
-                          <>
-                            <ShieldCheck className="w-3 h-3 text-purple-400 animate-spin" />
-                            Calculating SHA-256 Checksum...
-                          </>
-                        ) : (
-                          <>
-                            <Download className="w-3 h-3 text-blue-400" />
-                            Downloading: {model.progressPercent}%
-                          </>
+              return (
+                <div
+                  key={model.id}
+                  className={`bg-[#0C1021] border rounded-2xl p-4 space-y-3 transition-all ${
+                    isLoaded 
+                      ? 'border-emerald-500/40 shadow-lg shadow-emerald-950/20' 
+                      : isReady
+                      ? 'border-white/10'
+                      : 'border-white/5'
+                  }`}
+                >
+                  {/* Top Row: Title & Badge */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="text-xs font-bold text-white font-sans">
+                          {model.name}
+                        </h4>
+                        {model.category === 'primary_chat' && (
+                          <span className="text-[8px] font-mono font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30 px-1.5 py-0.2 rounded">
+                            PRIMARY
+                          </span>
                         )}
-                      </span>
-                      <span className="text-slate-400">
-                        {model.speedMbps > 0 ? `${model.speedMbps} Mbps • ETA ${model.etaSeconds}s` : ''}
-                      </span>
+                        {model.category === 'fallback_chat' && (
+                          <span className="text-[8px] font-mono font-bold bg-slate-700 text-slate-300 px-1.5 py-0.2 rounded">
+                            FALLBACK
+                          </span>
+                        )}
+                        {model.category === 'voice_stt' && (
+                          <span className="text-[8px] font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 px-1.5 py-0.2 rounded">
+                            WHISPER STT
+                          </span>
+                        )}
+                        {model.category === 'voice_tts' && (
+                          <span className="text-[8px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.2 rounded">
+                            PIPER TTS
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-400 font-sans leading-relaxed">
+                        {model.description}
+                      </p>
                     </div>
 
-                    {/* Bar */}
-                    <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full transition-all duration-300 ${
-                          isVerifying ? 'bg-purple-500 animate-pulse' : 'bg-blue-500'
-                        }`}
-                        style={{ width: `${model.progressPercent}%` }}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between text-[9px] font-mono text-slate-500">
-                      <span>
-                        {(model.downloadedBytes / (1024 * 1024)).toFixed(1)} MB / {(model.sizeBytes / (1024 * 1024)).toFixed(1)} MB
-                      </span>
-                      {isDownloading && (
-                        <button
-                          onClick={() => handleCancelDownload(model.id)}
-                          className="text-rose-400 hover:text-rose-300 font-bold underline"
-                        >
-                          Cancel
-                        </button>
-                      )}
+                    <div className="shrink-0">
+                      {getStatusBadge(model.status)}
                     </div>
                   </div>
-                )}
 
-                {/* Error Banner */}
-                {model.lastErrorMessage && (
-                  <div className="p-2.5 rounded-xl bg-rose-950/40 border border-rose-500/30 text-rose-300 text-[10px] font-mono flex items-start gap-2">
-                    <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-400 mt-0.5" />
-                    <div className="min-w-0">
-                      <strong className="block text-white">Download or Verification Error:</strong>
-                      {model.lastErrorMessage}
+                  {/* Model Metadata Spec Grid */}
+                  <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-[#070914]/60 border border-white/5 text-[10px] font-mono text-slate-400">
+                    <div>
+                      <span className="text-slate-500 block text-[9px]">FILE SIZE</span>
+                      <span className="text-slate-200 font-semibold">{model.sizeFormatted}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block text-[9px]">FORMAT / QUANT</span>
+                      <span className="text-slate-200 font-semibold">{model.format} {model.quantization ? `• ${model.quantization}` : ''}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block text-[9px]">RAM BUDGET</span>
+                      <span className="text-slate-200 font-semibold">{model.estimatedRamFormatted}</span>
                     </div>
                   </div>
-                )}
 
-                {/* Action Button Row */}
-                <div className="flex items-center gap-2 pt-1">
-                  {/* Download / Retry Button */}
-                  {model.status === 'NOT_INSTALLED' && (
-                    <button
-                      onClick={() => handleDownload(model.id)}
-                      className="flex-1 py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-98 text-white text-xs font-semibold font-sans flex items-center justify-center gap-1.5 transition-all shadow-md shadow-blue-900/30"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      Download Model Pack ({model.sizeFormatted})
-                    </button>
+                  {/* Download Progress Bar */}
+                  {(isDownloading || isVerifying) && (
+                    <div className="space-y-1.5 p-3 rounded-xl bg-blue-950/20 border border-blue-500/20">
+                      <div className="flex items-center justify-between text-[10px] font-mono">
+                        <span className="text-blue-300 font-bold flex items-center gap-1.5">
+                          {isVerifying ? (
+                            <>
+                              <ShieldCheck className="w-3 h-3 text-purple-400 animate-spin" />
+                              Calculating SHA-256 Checksum...
+                            </>
+                          ) : (
+                            <>
+                              <Download className="w-3 h-3 text-blue-400" />
+                              Downloading: {model.progressPercent}%
+                            </>
+                          )}
+                        </span>
+                        <span className="text-slate-400">
+                          {model.speedMbps > 0 ? `${model.speedMbps} Mbps • ETA ${model.etaSeconds}s` : ''}
+                        </span>
+                      </div>
+
+                      {/* Bar */}
+                      <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full transition-all duration-300 ${
+                            isVerifying ? 'bg-purple-500 animate-pulse' : 'bg-blue-500'
+                          }`}
+                          style={{ width: `${model.progressPercent}%` }}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between text-[9px] font-mono text-slate-500">
+                        <span>
+                          {(model.downloadedBytes / (1024 * 1024)).toFixed(1)} MB / {(model.sizeBytes / (1024 * 1024)).toFixed(1)} MB
+                        </span>
+                        {isDownloading && (
+                          <button
+                            onClick={() => handleCancelDownload(model.id)}
+                            className="text-rose-400 hover:text-rose-300 font-bold underline"
+                          >
+                            Cancel
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   )}
 
-                  {(model.status === 'CORRUPTED' || model.status === 'ERROR') && (
-                    <button
-                      onClick={() => handleDownload(model.id)}
-                      className="flex-1 py-2 px-3 rounded-xl bg-amber-600 hover:bg-amber-500 active:scale-98 text-white text-xs font-semibold font-sans flex items-center justify-center gap-1.5 transition-all"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5" />
-                      Retry Download
-                    </button>
+                  {/* Error Banner */}
+                  {model.lastErrorMessage && (
+                    <div className="p-2.5 rounded-xl bg-rose-950/40 border border-rose-500/30 text-rose-300 text-[10px] font-mono flex items-start gap-2">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-400 mt-0.5" />
+                      <div className="min-w-0">
+                        <strong className="block text-white">Download or Verification Error:</strong>
+                        {model.lastErrorMessage}
+                      </div>
+                    </div>
                   )}
 
-                  {/* Ready Controls */}
-                  {isReady && (
-                    <>
-                      {/* Load / Unload Toggle */}
-                      {isLoaded ? (
-                        <button
-                          onClick={handleUnloadModel}
-                          disabled={actionLoadingId === 'unload'}
-                          className="flex-1 py-2 px-3 rounded-xl bg-amber-950/60 hover:bg-amber-900/60 border border-amber-500/30 text-amber-300 text-xs font-semibold font-sans flex items-center justify-center gap-1.5 transition-all"
-                        >
-                          <Square className="w-3.5 h-3.5 text-amber-400" />
-                          Unload from RAM
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleLoadModel(model.id)}
-                          disabled={actionLoadingId === model.id}
-                          className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-98 text-white text-xs font-semibold font-sans flex items-center justify-center gap-1.5 transition-all shadow-md shadow-emerald-900/30"
-                        >
-                          <Play className="w-3.5 h-3.5" />
-                          {actionLoadingId === model.id ? 'Allocating...' : 'Load into RAM'}
-                        </button>
-                      )}
-
-                      {/* Diagnostic Test Button */}
+                  {/* Action Button Row */}
+                  <div className="flex items-center gap-2 pt-1">
+                    {/* Download / Retry Button */}
+                    {model.status === 'NOT_INSTALLED' && (
                       <button
-                        onClick={() => handleRunDiagnostic(model.id)}
-                        disabled={isTesting}
-                        className="py-2 px-3 rounded-xl bg-purple-950/60 hover:bg-purple-900/60 border border-purple-500/30 text-purple-300 text-xs font-semibold font-sans flex items-center justify-center gap-1.5 transition-all shrink-0"
-                        title="Run real llama.cpp prompt test"
+                        onClick={() => handleDownload(model.id)}
+                        className="flex-1 py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-98 text-white text-xs font-semibold font-sans flex items-center justify-center gap-1.5 transition-all shadow-md shadow-blue-900/30"
                       >
-                        <Terminal className={`w-3.5 h-3.5 ${isTesting ? 'animate-spin text-purple-400' : ''}`} />
-                        {isTesting ? 'Testing...' : 'Run Test'}
+                        <Download className="w-3.5 h-3.5" />
+                        Download Model Pack ({model.sizeFormatted})
                       </button>
+                    )}
 
-                      {/* Delete Button */}
-                      {confirmDeleteId === model.id ? (
-                        <div className="flex items-center gap-1 shrink-0">
+                    {(model.status === 'CORRUPTED' || model.status === 'ERROR') && (
+                      <button
+                        onClick={() => handleDownload(model.id)}
+                        className="flex-1 py-2 px-3 rounded-xl bg-amber-600 hover:bg-amber-500 active:scale-98 text-white text-xs font-semibold font-sans flex items-center justify-center gap-1.5 transition-all"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        Retry Download
+                      </button>
+                    )}
+
+                    {/* Ready Controls */}
+                    {isReady && (
+                      <>
+                        {/* Load / Unload Toggle */}
+                        {isLoaded ? (
                           <button
-                            onClick={() => handleDeleteModel(model.id)}
+                            onClick={handleUnloadModel}
+                            disabled={actionLoadingId === 'unload'}
+                            className="flex-1 py-2 px-3 rounded-xl bg-amber-950/60 hover:bg-amber-900/60 border border-amber-500/30 text-amber-300 text-xs font-semibold font-sans flex items-center justify-center gap-1.5 transition-all"
+                          >
+                            <Square className="w-3.5 h-3.5 text-amber-400" />
+                            Unload from RAM
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleLoadModel(model.id)}
                             disabled={actionLoadingId === model.id}
-                            className="p-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-mono font-bold transition-all"
+                            className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-98 text-white text-xs font-semibold font-sans flex items-center justify-center gap-1.5 transition-all shadow-md shadow-emerald-900/30"
                           >
-                            Confirm
+                            <Play className="w-3.5 h-3.5" />
+                            {actionLoadingId === model.id ? 'Allocating...' : 'Load into RAM'}
                           </button>
-                          <button
-                            onClick={() => setConfirmDeleteId(null)}
-                            className="p-2 rounded-xl bg-white/10 text-slate-300 text-[10px] font-mono transition-all"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ) : (
+                        )}
+
+                        {/* Diagnostic Test Button */}
                         <button
-                          onClick={() => setConfirmDeleteId(model.id)}
-                          className="p-2 rounded-xl bg-white/5 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 border border-white/5 transition-all shrink-0"
-                          title="Delete model file"
+                          onClick={() => handleRunDiagnostic(model.id)}
+                          disabled={isTesting}
+                          className="py-2 px-3 rounded-xl bg-purple-950/60 hover:bg-purple-900/60 border border-purple-500/30 text-purple-300 text-xs font-semibold font-sans flex items-center justify-center gap-1.5 transition-all shrink-0"
+                          title="Run real diagnostic test"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Terminal className={`w-3.5 h-3.5 ${isTesting ? 'animate-spin text-purple-400' : ''}`} />
+                          {isTesting ? 'Testing...' : 'Run Test'}
                         </button>
-                      )}
-                    </>
-                  )}
+
+                        {/* Delete Button */}
+                        {confirmDeleteId === model.id ? (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              onClick={() => handleDeleteModel(model.id)}
+                              disabled={actionLoadingId === model.id}
+                              className="p-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-mono font-bold transition-all"
+                            >
+                              Confirm
+                            </button>
+                            <button
+                              onClick={() => setConfirmDeleteId(null)}
+                              className="p-2 rounded-xl bg-white/10 text-slate-300 text-[10px] font-mono transition-all"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setConfirmDeleteId(model.id)}
+                            className="p-2 rounded-xl bg-white/5 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 border border-white/5 transition-all shrink-0"
+                            title="Delete model file"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
 
         {/* Diagnostic Test Output Display Panel */}

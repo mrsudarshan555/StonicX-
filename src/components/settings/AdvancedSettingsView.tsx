@@ -3,7 +3,8 @@ import { AdvancedConfig } from '../../types';
 import { 
   ShieldAlert, Mic, Camera, Bell, 
   Layers, Accessibility, Cpu, Battery, 
-  Terminal, Bug, AlertOctagon, CheckCircle2, Sliders, ArrowLeft
+  Terminal, Bug, AlertOctagon, CheckCircle2, Sliders, ArrowLeft,
+  Hand
 } from 'lucide-react';
 
 interface AdvancedSettingsViewProps {
@@ -240,6 +241,33 @@ export const AdvancedSettingsView: React.FC<AdvancedSettingsViewProps> = ({
               onChange={(e) => onChange({ verboseLogging: e.target.checked })}
               className="w-4 h-4 accent-purple-500 rounded"
             />
+          </div>
+        </div>
+
+        {/* Barehands Hand Tracking Engine Status Card */}
+        <div className="p-3.5 bg-[#0C1021] border border-cyan-500/30 rounded-2xl space-y-2.5">
+          <div className="text-[11px] font-mono font-bold text-cyan-400 uppercase flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Hand className="w-3.5 h-3.5 text-cyan-400" /> Barehands Gesture Engine
+            </div>
+            <span className="px-2 py-0.5 bg-cyan-950 text-[9px] text-cyan-300 font-mono rounded-full border border-cyan-500/30">
+              18 FPS Throttled
+            </span>
+          </div>
+
+          <p className="text-[10px] text-slate-300 leading-relaxed">
+            Clean-room 3D hand tracking module using MediaPipe 21 landmarks. Features hand detection, pinch-drag, two-hand scaling, and model rotation.
+          </p>
+
+          <div className="grid grid-cols-2 gap-2 text-[10px] font-mono pt-1">
+            <div className="p-2 bg-[#070913] rounded-lg border border-white/5 text-slate-300 flex flex-col gap-0.5">
+              <span className="text-slate-500 text-[9px]">POWER SAFETY</span>
+              <span className="text-emerald-400 font-bold">Auto-Pause on Idle</span>
+            </div>
+            <div className="p-2 bg-[#070913] rounded-lg border border-white/5 text-slate-300 flex flex-col gap-0.5">
+              <span className="text-slate-500 text-[9px]">CAMERA ACCESS</span>
+              <span className="text-cyan-300 font-bold">On-Demand Only</span>
+            </div>
           </div>
         </div>
 

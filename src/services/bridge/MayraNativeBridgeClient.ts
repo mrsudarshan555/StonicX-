@@ -355,6 +355,178 @@ class MayraNativeBridgeClientClass {
       return false;
     }
   }
+
+  // ==========================================
+  // PHASE 4: OFFLINE VOICE ENGINE (STT / TTS)
+  // ==========================================
+
+  private activeTtsChunkCallback: ((audioBase64Pcm: string, isFinished: boolean) => void) | null = null;
+  private activeSttCallback: ((text: string, isFinal: boolean) => void) | null = null;
+
+  /**
+   * Check if Native Voice Engine (Whisper / Piper) is available.
+   */
+  async isVoiceEngineAvailable(): Promise<boolean> {
+    if (typeof window === 'undefined' || !window.MayraNativeLLM) {
+      return false;
+    }
+    try {
+      if (window.MayraNativeLLM.isVoiceEngineAvailable) {
+        return await Promise.resolve(window.MayraNativeLLM.isVoiceEngineAvailable());
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Load Whisper STT Model into Native Memory.
+   */
+  async loadSTTModel(modelPath: string): Promise<boolean> {
+    if (typeof window === 'undefined' || !window.MayraNativeLLM) {
+      return false;
+    }
+    try {
+      if (window.MayraNativeLLM.loadSTTModel) {
+        return await Promise.resolve(window.MayraNativeLLM.loadSTTModel(modelPath));
+      }
+      return false;
+    } catch (e) {
+      console.error('[MayraNativeBridgeClient] loadSTTModel failed:', e);
+      return false;
+    }
+  }
+
+  /**
+   * Unload STT Model from memory.
+   */
+  async unloadSTTModel(): Promise<boolean> {
+    if (typeof window === 'undefined' || !window.MayraNativeLLM) {
+      return true;
+    }
+    try {
+      if (window.MayraNativeLLM.unloadSTTModel) {
+        return await Promise.resolve(window.MayraNativeLLM.unloadSTTModel());
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Check if STT model is loaded in native memory.
+   */
+  async isSTTLoaded(): Promise<boolean> {
+    if (typeof window === 'undefined' || !window.MayraNativeLLM) {
+      return false;
+    }
+    try {
+      if (window.MayraNativeLLM.isSTTLoaded) {
+        return await Promise.resolve(window.MayraNativeLLM.isSTTLoaded());
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Transcribe 16kHz PCM audio on-device using Whisper.cpp.
+   */
+  async transcribeOfflineSpeech(base64Pcm16k: string, sampleRate = 16000): Promise<{ text: string; language: string; durationMs: number }> {
+    if (typeof window === 'undefined' || !window.MayraNativeLLM) {
+      throw new Error('Native Android Voice Bridge is unavailable on this platform');
+    }
+    if (!window.MayraNativeLLM.transcribeAudio) {
+      throw new Error('Native STT engine is not supported by current bridge version');
+    }
+    try {
+      const res = await Promise.resolve(window.MayraNativeLLM.transcribeAudio(base64Pcm16k, sampleRate));
+      if (typeof res === 'string') {
+        return JSON.parse(res);
+      }
+      return res;
+    } catch (e: any) {
+      console.error('[MayraNativeBridgeClient] transcribeOfflineSpeech failed:', e);
+      throw new Error(e.message || 'Offline Speech Recognition failed');
+    }
+  }
+
+  /**
+   * Load Piper TTS Model into Native Memory.
+   */
+  async loadTTSModel(modelPath: string): Promise<boolean> {
+    if (typeof window === 'undefined' || !window.MayraNativeLLM) {
+      return false;
+    }
+    try {
+      if (window.MayraNativeLLM.loadTTSModel) {
+        return await Promise.resolve(window.MayraNativeLLM.loadTTSModel(modelPath));
+      }
+      return false;
+    } catch (e) {
+      console.error('[MayraNativeBridgeClient] loadTTSModel failed:', e);
+      return false;
+    }
+  }
+
+  /**
+   * Unload TTS Model from memory.
+   */
+  async unloadTTSModel(): Promise<boolean> {
+    if (typeof window === 'undefined' || !window.MayraNativeLLM) {
+      return true;
+    }
+    try {
+      if (window.MayraNativeLLM.unloadTTSModel) {
+        return await Promise.resolve(window.MayraNativeLLM.unloadTTSModel());
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Check if TTS model is loaded in native memory.
+   */
+  async isTTSLoaded(): Promise<boolean> {
+    if (typeof window === 'undefined' || !window.MayraNativeLLM) {
+      return false;
+    }
+    try {
+      if (window.MayraNativeLLM.isTTSLoaded) {
+        return await Promise.resolve(window.MayraNativeLLM.isTTSLoaded());
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Synthesize text to speech using Piper TTS on-device.
+   */
+  async synthesizeOfflineSpeech(text: string, voice = 'lessac'): Promise<{ audioBase64: string; sampleRate: number; durationMs: number }> {
+    if (typeof window === 'undefined' || !window.MayraNativeLLM) {
+      throw new Error('Native Android Voice Bridge is unavailable on this platform');
+    }
+    if (!window.MayraNativeLLM.synthesizeSpeech) {
+      throw new Error('Native TTS engine is not supported by current bridge version');
+    }
+    try {
+      const res = await Promise.resolve(window.MayraNativeLLM.synthesizeSpeech(text, voice));
+      if (typeof res === 'string') {
+        return JSON.parse(res);
+      }
+      return res;
+    } catch (e: any) {
+      console.error('[MayraNativeBridgeClient] synthesizeOfflineSpeech failed:', e);
+      throw new Error(e.message || 'Offline Speech Synthesis failed');
+    }
+  }
 }
 
 export const MayraNativeBridgeClient = new MayraNativeBridgeClientClass();

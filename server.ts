@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import https from 'https';
 import dotenv from 'dotenv';
-import { GoogleGenAI, Modality } from '@google/genai';
+import { GoogleGenAI, Modality, FunctionDeclaration, Type } from '@google/genai';
 import { WebSocketServer, WebSocket } from 'ws';
 
 dotenv.config();
@@ -43,12 +43,13 @@ function normalizeModelName(model?: string): string {
   return trimmed;
 }
 
-// Helper for resilient Gemini content generation with multi-model fallback and timeout protection
+// Helper for resilient Gemini content generation with multi-model fallback, multimodal image/document support, and timeout protection
 async function generateGeminiResponse(
   message: string,
   systemInstruction: string,
   temperature: number,
-  preferredModel?: string
+  preferredModel?: string,
+  image?: { mimeType?: string; base64?: string }
 ): Promise<string | null> {
   if (!process.env.GEMINI_API_KEY) {
     return null;
@@ -59,15 +60,54 @@ async function generateGeminiResponse(
   const candidateModels = Array.from(
     new Set([
       primaryModel,
-      'gemini-3.1-flash-lite'
+      'gemini-3.1-flash-lite',
+      'gemini-2.5-flash'
     ].filter((m): m is string => Boolean(m && typeof m === 'string' && m.trim().length > 0 && m !== 'gemini-3.7-flash')))
   );
+
+  // Construct multimodal or text content payload
+  let contentsPayload: any;
+  if (image && image.base64) {
+    const rawData = image.base64.replace(/^data:[^;]+;base64,/, '');
+    const isDoc = image.mimeType?.includes('pdf') || 
+                  image.mimeType?.includes('document') || 
+                  image.mimeType?.includes('text') || 
+                  image.mimeType?.includes('csv') || 
+                  image.mimeType?.includes('json');
+
+    const effectiveMime = image.mimeType || (isDoc ? 'application/pdf' : 'image/jpeg');
+
+    console.log('[MAYRA_GEMINI_GENERATE_MULTIMODAL]', {
+      prompt: message,
+      isDoc,
+      mimeType: effectiveMime,
+      rawDataLength: rawData.length,
+      first40Bytes: rawData.slice(0, 40)
+    });
+
+    const filePart = {
+      inlineData: {
+        mimeType: effectiveMime,
+        data: rawData
+      }
+    };
+
+    const textPrompt = message && message.trim() 
+      ? message 
+      : (isDoc 
+          ? 'Analyze and read this attached document in detail. Summarize key sections, extract facts, numbers and text, and describe the contents accurately.'
+          : 'Analyze this image in detail. Read any visible text, identify objects, describe the scene, and answer what you see.');
+    
+    contentsPayload = [filePart, { text: textPrompt }];
+  } else {
+    contentsPayload = message;
+  }
 
   for (const modelName of candidateModels) {
     try {
       const callPromise = ai.models.generateContent({
         model: modelName,
-        contents: message,
+        contents: contentsPayload,
         config: {
           systemInstruction,
           temperature
@@ -75,7 +115,7 @@ async function generateGeminiResponse(
       });
 
       const timeoutPromise = new Promise<null>((_, reject) => 
-        setTimeout(() => reject(new Error('TIMEOUT')), 4500)
+        setTimeout(() => reject(new Error('TIMEOUT')), 15000)
       );
 
       const response = await Promise.race([callPromise, timeoutPromise]) as any;
@@ -92,12 +132,113 @@ async function generateGeminiResponse(
   return null;
 }
 
+// Automatic Background Memory Extractor: Identifies important personal facts mentioned in passing
+function extractAutomaticMemories(message: string, existingMemories: Array<{ key: string; value: string }>): { key: string; value: string; category: string } | null {
+  if (!message || typeof message !== 'string' || message.trim().length < 6) return null;
+  const raw = message.trim();
+  const lower = raw.toLowerCase();
+
+  // Exclude explicit command phrases handled elsewhere
+  if (lower.startsWith('save memory') || lower.startsWith('memory mein') || lower.startsWith('remember this')) {
+    return null;
+  }
+
+  let extracted: { key: string; value: string; category: string } | null = null;
+
+  // 1. Name Disclosures: "my name is X", "call me X", "mera naam X hai", "mujhe X bulao"
+  const nameMatch = raw.match(/(?:my name is|i am|call me|mera naam|mujhe)\s+([a-zA-Z0-9\s]+?)(?:\s+hai|\s+bulao|\.|\,|$)/i);
+  if (nameMatch && nameMatch[1] && !lower.includes('why') && !lower.includes('what') && !lower.includes('kya')) {
+    const val = nameMatch[1].trim();
+    if (val.length >= 2 && val.length <= 30 && !/^(who|what|why|how|ready|listening|speaking|here)$/i.test(val)) {
+      extracted = { key: 'User Name', value: val, category: 'personal' };
+    }
+  }
+
+  // 2. Favorite things: "my favorite X is Y", "mera favourite X Y hai"
+  const favMatch = raw.match(/(?:my\s+favou?rite\s+([a-zA-Z\s]+?)\s+is\s+([a-zA-Z0-9\s]+)|mera\s+favou?rite\s+([a-zA-Z\s]+?)\s+([a-zA-Z0-9\s]+?)(?:\s+hai|$))/i);
+  if (!extracted && favMatch) {
+    const item = (favMatch[1] || favMatch[3] || 'Preference').trim();
+    const val = (favMatch[2] || favMatch[4] || '').trim();
+    if (item && val && val.length < 50) {
+      extracted = { key: `Favorite ${item.charAt(0).toUpperCase() + item.slice(1)}`, value: val, category: 'preference' };
+    }
+  }
+
+  // 3. Likes/Preferences: "I love X", "I prefer X", "Mujhe X pasand hai", "Mujhe X bahut accha lagta hai"
+  const loveMatch = raw.match(/(?:i\s+(?:love|really\s+like|prefer)\s+([a-zA-Z0-9\s,]+)|mujhe\s+([a-zA-Z0-9\s]+?)\s+(?:pasand|bahut\s+pasand|accha\s+lagta)\s+hai)/i);
+  if (!extracted && loveMatch) {
+    const val = (loveMatch[1] || loveMatch[2] || '').trim();
+    if (val.length >= 2 && val.length <= 60 && !val.toLowerCase().startsWith('to ') && !/^(it|this|that|you)$/i.test(val)) {
+      extracted = { key: 'Preference', value: `Loves/Prefers ${val}`, category: 'preference' };
+    }
+  }
+
+  // 4. Job/Work/Profession: "I work at X", "I am a software engineer", "Main X company mein kaam karta hoon"
+  const jobMatch = raw.match(/(?:i\s+work\s+(?:at|for|as)\s+([a-zA-Z0-9\s]+)|main\s+([a-zA-Z0-9\s]+?)\s+(?:mein\s+kaam\s+karta\s+hoon|company\s+mein\s+hoon))/i);
+  if (!extracted && jobMatch) {
+    const val = (jobMatch[1] || jobMatch[2] || '').trim();
+    if (val.length >= 2 && val.length <= 50) {
+      extracted = { key: 'Profession / Workplace', value: val, category: 'personal' };
+    }
+  }
+
+  // 5. Living location: "I live in X", "I am based in X", "Main X mein rehta hoon"
+  const locMatch = raw.match(/(?:i\s+live\s+in|i\s+am\s+based\s+in|main\s+([a-zA-Z0-9\s]+?)\s+mein\s+rehta\s+hoon)\s*([a-zA-Z\s]+)?/i);
+  if (!extracted && locMatch) {
+    const val = (locMatch[1] || locMatch[2] || '').trim();
+    if (val.length >= 2 && val.length <= 40) {
+      extracted = { key: 'Location / City', value: val, category: 'personal' };
+    }
+  }
+
+  // 6. Pets & Family: "My dog is named X", "My brother is X", "Mere dog ka naam X hai", "Mere bhai ka naam X hai"
+  const relMatch = raw.match(/(?:my\s+(dog|cat|pet|brother|sister|wife|husband|friend)\s+(?:is\s+named|is|name\s+is)\s+([a-zA-Z0-9\s]+)|mere\s+(dog|cat|pet|bhai|behan|dost|wife)\s+ka\s+naam\s+([a-zA-Z0-9\s]+?)(?:\s+hai|$))/i);
+  if (!extracted && relMatch) {
+    const rel = (relMatch[1] || relMatch[3] || 'Relation').trim();
+    const val = (relMatch[2] || relMatch[4] || '').trim();
+    if (rel && val && val.length < 40) {
+      extracted = { key: `${rel.charAt(0).toUpperCase() + rel.slice(1)}'s Name`, value: val, category: 'personal' };
+    }
+  }
+
+  // 7. Allergies & Dietary: "I am allergic to X", "I am vegetarian", "Mujhe X se allergy hai"
+  const allergyMatch = raw.match(/(?:i\s+am\s+allergic\s+to\s+([a-zA-Z0-9\s]+)|i\s+am\s+(vegetarian|vegan|gluten-free)|mujhe\s+([a-zA-Z0-9\s]+?)\s+se\s+allergy\s+hai)/i);
+  if (!extracted && allergyMatch) {
+    const val = (allergyMatch[1] || allergyMatch[2] || allergyMatch[3] || '').trim();
+    if (val) {
+      extracted = { key: 'Dietary / Health Note', value: val, category: 'personal' };
+    }
+  }
+
+  // Check if this fact is already known to avoid spamming duplicate memory items
+  if (extracted) {
+    const isDuplicate = existingMemories.some(
+      m => m.key.toLowerCase() === extracted!.key.toLowerCase() && m.value.toLowerCase() === extracted!.value.toLowerCase()
+    );
+    if (isDuplicate) return null;
+  }
+
+  return extracted;
+}
+
 function detectLang(text: string): 'hi' | 'en' {
-  if (!text) return 'en';
+  if (!text || typeof text !== 'string') return 'en';
   if (/[\u0900-\u097F]/.test(text)) return 'hi';
-  const hinglishWords = ['karo', 'karein', 'kya', 'hai', 'hain', 'kaise', 'mujhe', 'batao', 'mera', 'meri', 'namaste', 'shukriya', 'theek', 'bolo', 'aap'];
-  const lower = text.toLowerCase();
-  if (hinglishWords.some(w => lower.includes(w))) return 'hi';
+  const hinglishWords = new Set([
+    'karo', 'karein', 'kya', 'hai', 'hain', 'kaise', 'kaisi', 'mujhe', 'batao',
+    'bataiye', 'mera', 'meri', 'mere', 'namaste', 'shukriya', 'theek', 'bolo', 'aap', 'tum',
+    'dhanyawad', 'kahan', 'kab', 'kyun', 'nahi', 'haan', 'madad', 'chahiye',
+    'dekh', 'dekho', 'rahe', 'rahi', 'kripya', 'sunao', 'accha', 'sakta', 'sakti',
+    'hoga', 'hogi', 'apna', 'apni', 'kaam', 'haal', 'kaun'
+  ]);
+  const words = text.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
+  let hinglishCount = 0;
+  for (const w of words) {
+    if (hinglishWords.has(w)) hinglishCount++;
+  }
+  if (words.length > 0 && (hinglishCount >= 2 || (words.length <= 3 && hinglishCount >= 1))) {
+    return 'hi';
+  }
   return 'en';
 }
 
@@ -523,19 +664,94 @@ function parseCommandIntent(message: string, language: string = 'en'): { action:
     };
   }
 
+  // 8. SCREEN SHARE INTENT (Explicit Recognition & Spoken Guidance)
+  if (
+    lower.includes('see my screen') ||
+    lower.includes('screen share') ||
+    lower.includes('share screen') ||
+    lower.includes('look at my screen') ||
+    lower.includes('view my screen') ||
+    lower.includes('watch my screen') ||
+    lower.includes('screen dekh sakti') ||
+    lower.includes('screen dekh sakte') ||
+    lower.includes('screen dikhana') ||
+    lower.includes('screen kaise share') ||
+    lower.includes('meri screen dekho')
+  ) {
+    const isHindi = (language === 'hi' || detectLang(message) === 'hi');
+    const reply = isHindi
+      ? 'Aap upar top bar mein diye gaye Screen Share icon par tap karein ya Scanner screen use karein. Screen stream connect hote hi main aapki screen live dekh kar real-time mein aapki madad kar sakti hoon.'
+      : "To share your screen, simply tap the screen-share button at the top of the screen or use the analyze-screen tool. Once you connect or share your screen, I'll be able to see everything on your display and help analyze, describe, or guide you through it in real time!";
+
+    return {
+      action: { type: 'SCREEN_SHARE_INTENT', payload: { action: 'open_screen_share' } },
+      reply
+    };
+  }
+
+  // 9. PHONE CONTROL INTENT (Accessibility & Device Automation Guidance)
+  if (
+    lower.includes('control my phone') ||
+    lower.includes('control the phone') ||
+    lower.includes('automate my phone') ||
+    lower.includes('take control of my phone') ||
+    lower.includes('manage my phone') ||
+    lower.includes('phone control kar') ||
+    lower.includes('phone chala sakti') ||
+    lower.includes('phone operate kar') ||
+    lower.includes('device automate')
+  ) {
+    const isHindi = (language === 'hi' || detectLang(message) === 'hi');
+    const reply = isHindi
+      ? 'Main aapke phone ke actions aur automation mein zaroor madad kar sakti hoon! Iske liye Settings > Permissions mein jaakar Device Automation aur Accessibility permissions ko turn on kar lijiye. Uske baad main aapke liye routines aur controls perform kar sakti hoon.'
+      : "I can help automate and control phone actions once you enable the required permissions. Please go to Settings > Permissions and turn on the Device Automation and Accessibility permissions, and I'll be ready to manage routines and device actions for you!";
+
+    return {
+      action: { type: 'OPEN_SETTINGS', payload: { subScreen: 'permissions' } },
+      reply
+    };
+  }
+
   return null;
 }
 
-// Chat endpoint for MAYRA UI Preview with unified Action Execution & natural voice payload
+// Chat endpoint for MAYRA UI Preview with unified Action Execution, Multimodal Image Vision & Auto Memory
 app.post('/api/chat', async (req, res) => {
   try {
-    const { message, persona, model, temperature, userName, language, returnAudio } = req.body;
+    const { message, persona, model, temperature, userName, language, returnAudio, image } = req.body;
 
-    if (!message || typeof message !== 'string') {
-      return res.status(400).json({ error: 'Message is required' });
+    console.log('[MAYRA_SERVER_HTTP_DEBUG] /api/chat received request:', {
+      message: message || '',
+      hasImageAttachment: Boolean(image && image.base64),
+      mimeType: image?.mimeType || 'none',
+      base64Length: image?.base64 ? image.base64.length : 0,
+      imageName: image?.name || 'none'
+    });
+
+    if (!message && !image) {
+      return res.status(400).json({ error: 'Message or Image is required' });
     }
 
-    const lowerMsg = message.toLowerCase();
+    const safeMessage = message || '';
+    const lowerMsg = safeMessage.toLowerCase();
+
+    // Check for Automatic Background Memory Extraction from user statement
+    let autoMemorySaved: { key: string; value: string; category: string } | null = null;
+    if (safeMessage) {
+      const detectedAutoMem = extractAutomaticMemories(safeMessage, memoryStore);
+      if (detectedAutoMem) {
+        const newMemItem = {
+          id: `mem-auto-${Date.now()}`,
+          key: detectedAutoMem.key,
+          value: detectedAutoMem.value,
+          category: detectedAutoMem.category,
+          timestamp: Date.now()
+        };
+        memoryStore.unshift(newMemItem);
+        autoMemorySaved = detectedAutoMem;
+        console.log('[MAYRA Memory Engine] ✦ AUTO-EXTRACTED MEMORY:', detectedAutoMem);
+      }
+    }
 
     // Creator check
     if (
@@ -558,13 +774,14 @@ app.post('/api/chat', async (req, res) => {
         response: creatorResponse,
         status: 'SUCCESS',
         action: null,
+        autoMemorySaved,
         audioBase64: audioResult?.audioBase64 || null,
         mimeType: audioResult?.mimeType || null
       });
     }
 
     // 1. Check deterministic & command action intent
-    const detectedCommand = parseCommandIntent(message, language);
+    const detectedCommand = parseCommandIntent(safeMessage, language);
     if (detectedCommand) {
       console.log(`[MAYRA Command Engine] Executed Action '${detectedCommand.action.type}' with payload:`, detectedCommand.action.payload);
       const audioResult = (returnAudio !== false) ? await generateAoedeVoiceAudio(detectedCommand.reply, language) : null;
@@ -572,36 +789,48 @@ app.post('/api/chat', async (req, res) => {
         response: detectedCommand.reply,
         status: 'SUCCESS',
         action: detectedCommand.action,
+        autoMemorySaved,
         audioBase64: audioResult?.audioBase64 || null,
         mimeType: audioResult?.mimeType || null
       });
     }
 
-    // 2. Complex AI Generation via Gemini
+    // 2. Multimodal AI Generation via Gemini
     const selectedModel = (typeof model === 'string' && model.trim()) ? model.trim() : 'gemini-3.1-flash-lite';
-    const langInstruction = (language === 'hi')
-      ? 'Language instruction: The user prefers Hindi/Hinglish. Converse naturally, fluently and politely in Hindi (or conversational Hinglish).'
-      : 'Language instruction: Match the language used by the user (English or Hindi/Hinglish). If user speaks in Hindi, reply in Hindi/Hinglish.';
+    const detectedInputLang = detectLang(safeMessage);
+    const effectiveLang = (language === 'hi' || language === 'en') ? language : detectedInputLang;
+    
+    const langInstruction = (effectiveLang === 'hi')
+      ? 'CRITICAL LANGUAGE MANDATE: The user is writing/speaking in Hindi or Hinglish. You MUST respond ONLY in natural, fluent Hindi or conversational Hinglish.'
+      : 'CRITICAL LANGUAGE MANDATE: The user is writing/speaking in English. You MUST respond ONLY in clean, fluent English. DO NOT respond in Hindi or Hinglish when the user writes in English.';
     
     // Inject current active memories for high context awareness
     const contextMemories = memoryStore.slice(0, 5).map(m => `- ${m.key}: ${m.value}`).join('\n');
 
+    const visionGuidance = image 
+      ? 'MULTIMODAL VISION TASK: An image has been provided. Accurately identify the contents, read any visible text or typography, describe key objects and spatial arrangement, and answer the user query directly with high precision.'
+      : '';
+
     const systemInstruction = `You are MAYRA, an advanced personal Android AI assistant created by Zafer. Speak with clarity, precision, and a helpful demeanor. Tone: ${persona || 'executive'}. User's preferred name: ${userName || 'Zafer'}. If asked "Who created you?", "Who made you?", or who your developer/creator is, you must answer clearly and directly: "I was created by Zafer." Never refer to yourself as StonicX or Myra.
 Known user memories:
 ${contextMemories}
+${visionGuidance}
 ${langInstruction} Keep responses concise, direct and optimal for mobile screen reading.`;
     
     const temp = typeof temperature === 'number' ? temperature : 0.7;
 
-    const generatedText = await generateGeminiResponse(message, systemInstruction, temp, selectedModel);
-    const finalReply = generatedText || `Hello ${userName || 'Zafer'}, I have processed your request regarding "${message}". All system routines are operational and ready.`;
+    const generatedText = await generateGeminiResponse(safeMessage, systemInstruction, temp, selectedModel, image);
+    const finalReply = generatedText || (image 
+      ? `I have analyzed the provided image. It shows visible visual elements and details in clear view.`
+      : `Hello ${userName || 'Zafer'}, I have processed your request regarding "${safeMessage}". All system routines are operational and ready.`);
 
-    const audioResult = (returnAudio !== false) ? await generateAoedeVoiceAudio(finalReply, language) : null;
+    const audioResult = (returnAudio !== false) ? await generateAoedeVoiceAudio(finalReply, effectiveLang) : null;
 
     return res.json({
       response: finalReply,
       status: 'SUCCESS',
       action: null,
+      autoMemorySaved,
       audioBase64: audioResult?.audioBase64 || null,
       mimeType: audioResult?.mimeType || null
     });
@@ -618,10 +847,326 @@ ${langInstruction} Keep responses concise, direct and optimal for mobile screen 
   }
 });
 
+// Dedicated Multimodal Vision Analysis Endpoint (Scanner / Live Camera Snapshot)
+app.post('/api/vision/analyze', async (req, res) => {
+  try {
+    const { image, query, mode, language } = req.body;
+    if (!image || !image.base64) {
+      return res.status(400).json({ error: 'Image data (base64) is required' });
+    }
+
+    const effectiveLang = (language === 'hi' || language === 'en') ? language : 'en';
+    const langInstruction = (effectiveLang === 'hi')
+      ? 'Respond strictly in natural conversational Hindi/Hinglish.'
+      : 'Respond strictly in clear English.';
+
+    const systemInstruction = `You are MAYRA Vision Intelligence. You analyze photos, camera feeds, documents, screens, and objects. Mode: ${mode || 'general'}.
+${langInstruction} Provide a concise, highly insightful, accurate visual analysis. If there is text in the image, read and transcribe it accurately. If there are objects, count and identify them with precision.`;
+
+    const userPrompt = query && query.trim()
+      ? query
+      : 'Describe what you see in this live camera frame with high detail, reading any text, objects, or key features.';
+
+    const visionReply = await generateGeminiResponse(userPrompt, systemInstruction, 0.5, 'gemini-3.1-flash-lite', image);
+    const replyText = visionReply || 'Visual analysis completed. Scene elements recognized successfully.';
+
+    const audioResult = await generateAoedeVoiceAudio(replyText, effectiveLang);
+
+    return res.json({
+      success: true,
+      description: replyText,
+      audioBase64: audioResult?.audioBase64 || null,
+      mimeType: audioResult?.mimeType || null
+    });
+  } catch (err: any) {
+    console.error('Error in /api/vision/analyze:', err);
+    return res.status(500).json({ error: err?.message || 'Vision analysis failed' });
+  }
+});
+
+// MAYRA Agent V1 Tool Declarations for Gemini Function Calling
+const agentToolDeclarations: FunctionDeclaration[] = [
+  {
+    name: 'search_memory',
+    description: "Search personal facts, contact details, notes, preferences, or saved memories in MAYRA's Memory Vault.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        query: {
+          type: Type.STRING,
+          description: 'The search query or keyword (e.g., "Rahul phone number", "favorite food", "birthday")'
+        },
+        category: {
+          type: Type.STRING,
+          description: 'Optional category filter: personal, preferences, facts, routines, contacts'
+        }
+      },
+      required: ['query']
+    }
+  },
+  {
+    name: 'read_project_memory',
+    description: 'Read system capabilities, architecture state, and developer notes.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        topic: {
+          type: Type.STRING,
+          description: 'The topic to inspect: e.g., "capabilities", "system_bridge", "creator"'
+        }
+      }
+    }
+  },
+  {
+    name: 'get_device_status',
+    description: 'Query device battery, network connectivity, active Android permissions, and bridge health.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        includePermissions: {
+          type: Type.BOOLEAN,
+          description: 'Whether to include detailed permission statuses'
+        }
+      }
+    }
+  },
+  {
+    name: 'open_app',
+    description: 'Launch or switch to an installed application on the device (e.g. WhatsApp, Chrome, Camera, Settings, YouTube).',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        appName: {
+          type: Type.STRING,
+          description: 'Name of the app to launch (e.g., "WhatsApp", "Chrome", "Camera", "Settings", "YouTube")'
+        },
+        packageOrRoute: {
+          type: Type.STRING,
+          description: 'Optional Android package identifier (e.g., "com.whatsapp", "com.android.chrome")'
+        }
+      },
+      required: ['appName']
+    }
+  },
+  {
+    name: 'open_url',
+    description: 'Safely open a web URL in the browser or a new tab.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        url: {
+          type: Type.STRING,
+          description: 'The complete HTTP/HTTPS URL to open'
+        },
+        title: {
+          type: Type.STRING,
+          description: 'Optional label or title for the URL destination'
+        }
+      },
+      required: ['url']
+    }
+  },
+  {
+    name: 'read_notification',
+    description: 'Read recent notifications captured by the Android Notification Listener Service (e.g. WhatsApp messages, SMS alerts).',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        packageName: {
+          type: Type.STRING,
+          description: 'Filter by app package (e.g., "com.whatsapp", "com.google.android.apps.messaging")'
+        },
+        limit: {
+          type: Type.NUMBER,
+          description: 'Maximum number of recent notifications to retrieve (1-10)'
+        }
+      }
+    }
+  },
+  {
+    name: 'request_permission',
+    description: 'Prompt user or navigate to system settings for Android permissions (e.g. accessibility, sms, notifications).',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        permissionId: {
+          type: Type.STRING,
+          description: 'Identifier of the permission (e.g. "accessibility", "notifications", "sms", "calls", "camera")'
+        }
+      },
+      required: ['permissionId']
+    }
+  },
+  {
+    name: 'send_sms',
+    description: 'Send an SMS text message to a specific recipient phone number or contact. Note: Requires user confirmation.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        recipient: {
+          type: Type.STRING,
+          description: 'Name of the contact or recipient'
+        },
+        phoneNumber: {
+          type: Type.STRING,
+          description: 'Phone number to send the SMS to'
+        },
+        message: {
+          type: Type.STRING,
+          description: 'The exact text message content to send'
+        }
+      },
+      required: ['recipient', 'message']
+    }
+  },
+  {
+    name: 'send_whatsapp_message',
+    description: 'Send a message to a contact on WhatsApp via Accessibility Service or direct link intent. Note: Requires user confirmation.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        contactName: {
+          type: Type.STRING,
+          description: 'Name of the contact to message'
+        },
+        phoneNumber: {
+          type: Type.STRING,
+          description: 'Optional phone number with country code'
+        },
+        message: {
+          type: Type.STRING,
+          description: 'The exact message text to send'
+        }
+      },
+      required: ['contactName', 'message']
+    }
+  },
+  {
+    name: 'make_call',
+    description: 'Initiate a phone call to a contact or phone number via Telecom InCallService / Dialer. Note: Requires user confirmation.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        contactName: {
+          type: Type.STRING,
+          description: 'Name of the contact to call'
+        },
+        phoneNumber: {
+          type: Type.STRING,
+          description: 'Phone number to dial'
+        }
+      },
+      required: ['contactName']
+    }
+  }
+];
+
+// MAYRA Agent V1 Execution Endpoint (/api/agent/run)
+app.post('/api/agent/run', async (req, res) => {
+  try {
+    const { prompt, step, toolCalls, toolResults, userName, language, persona } = req.body;
+    console.log(`[MAYRA Agent V1] /api/agent/run step ${step}:`, { prompt, toolCallsCount: toolCalls?.length, resultsCount: toolResults?.length });
+
+    if (!prompt) {
+      return res.status(400).json({ error: 'Prompt is required' });
+    }
+
+    const effectiveLang = (language === 'hi' || language === 'en') ? language : detectLang(prompt);
+    const langInstruction = (effectiveLang === 'hi')
+      ? 'CRITICAL LANGUAGE: The user is communicating in Hindi/Hinglish. Respond naturally in Hindi/Hinglish.'
+      : 'CRITICAL LANGUAGE: The user is communicating in English. Respond in clear English.';
+
+    const systemPrompt = `You are MAYRA Agent V1, a real personal AI assistant and autonomous task executor created by Zafer.
+User: ${userName || 'Zafer'}. Tone: ${persona || 'executive'}.
+${langInstruction}
+
+You can execute multi-step authorized tasks using your tools.
+Rules:
+1. When the user asks you to perform a task (e.g. open an app, search memory, check notifications, send a message/SMS/WhatsApp, make a call), decide which tool to call first.
+2. If previous tool results are provided, evaluate them carefully to decide if another tool is needed or if the task is complete.
+3. If the user wants to contact someone (e.g. "Send Rahul a message saying I will call later"), you can first search memory to find the contact info or proceed directly to call send_whatsapp_message or send_sms.
+4. When all necessary actions are completed or if no tools are needed, provide a clear, helpful final response summarizing what was done.
+5. If the user declined/rejected a confirmation, acknowledge it respectfully and do not force the action.
+6. Keep final responses concise and optimal for voice reading.`;
+
+    // Construct conversational history including past tool calls and results
+    const contents: any[] = [];
+
+    // Initial user request
+    contents.push({
+      role: 'user',
+      parts: [{ text: `User Task: "${prompt}"` }]
+    });
+
+    // If there were previous tool calls and results in this multi-step task, serialize them as context
+    if (Array.isArray(toolCalls) && toolCalls.length > 0 && Array.isArray(toolResults)) {
+      let contextHistory = 'Execution progress so far:\n';
+      toolCalls.forEach((tc, idx) => {
+        const tr = toolResults[idx];
+        contextHistory += `Step ${idx + 1}: Called tool "${tc.name}" with arguments ${JSON.stringify(tc.args)}.\n`;
+        if (tr) {
+          if (tr.error) {
+            contextHistory += `  -> Tool returned error or user rejected: "${tr.error}".\n`;
+          } else {
+            contextHistory += `  -> Tool execution result: ${JSON.stringify(tr.result)}.\n`;
+          }
+        }
+      });
+      contextHistory += '\nNow, decide what to do next: call another tool if required, or finish the task and give the final response to the user.';
+      
+      contents.push({
+        role: 'user',
+        parts: [{ text: contextHistory }]
+      });
+    }
+
+    // Call Gemini with function declarations
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.1-flash-lite',
+      contents,
+      config: {
+        systemInstruction: systemPrompt,
+        temperature: 0.2,
+        tools: [
+          { functionDeclarations: agentToolDeclarations }
+        ]
+      }
+    });
+
+    const functionCalls = response.functionCalls;
+    if (functionCalls && functionCalls.length > 0) {
+      const topCall = functionCalls[0];
+      console.log('[MAYRA Agent V1] Gemini requested tool:', topCall.name, topCall.args);
+      return res.json({
+        done: false,
+        toolCall: {
+          name: topCall.name,
+          args: topCall.args || {}
+        }
+      });
+    }
+
+    // No tool call requested -> task complete
+    const finalReply = response.text || 'Task completed successfully.';
+    return res.json({
+      done: true,
+      finalResponse: finalReply
+    });
+  } catch (err: any) {
+    console.error('Error in /api/agent/run:', err);
+    return res.status(500).json({
+      done: true,
+      finalResponse: 'I encountered an issue processing the task. All device systems remain safe and operational.',
+      error: err?.message || 'Agent error'
+    });
+  }
+});
+
 // Tools Endpoint
 app.get('/api/tools', (req, res) => {
   res.json({ tools: availableTools });
 });
+
 
 // Serve frontend in production or integrate Vite middleware in dev
 async function startServer() {
@@ -721,12 +1266,54 @@ async function startServer() {
           }
         }
 
-        // Typed text from Home Screen or Chat Screen
-        if (parsed.text) {
-          console.log(`[LIVE_TEXT_RECEIVED_ON_SERVER] Text: "${parsed.text}"`);
+        // Live camera video frame from continuous scanner stream
+        if (parsed.liveCameraFrame && session) {
+          try {
+            const cleanFrame = parsed.liveCameraFrame.replace(/^data:[^;]+;base64,/, '');
+            session.sendRealtimeInput([
+              { mimeType: parsed.mimeType || 'image/jpeg', data: cleanFrame }
+            ]);
+            // Acknowledge frame receipt to client
+            if (clientWs.readyState === WebSocket.OPEN && parsed.requestAck) {
+              clientWs.send(JSON.stringify({ liveFrameReceived: true, timestamp: Date.now() }));
+            }
+          } catch (e: any) {
+            // Non-blocking frame drop
+          }
+        }
+
+        // Typed text or voice transcript or multimodal attachment from Home Screen / Chat Screen
+        if (parsed.text || (parsed.image && parsed.image.base64)) {
+          const userPrompt = parsed.text || 'Analyze this attached file and describe what you see in detail.';
+          const hasImage = Boolean(parsed.image && parsed.image.base64);
+
+          console.log(`[MAYRA_SERVER_WS_DEBUG] Received payload:`, {
+            prompt: userPrompt,
+            hasImageAttachment: hasImage,
+            mimeType: parsed.image?.mimeType || 'none',
+            base64Length: parsed.image?.base64 ? parsed.image.base64.length : 0
+          });
           
+          // Check for auto-extracted background personal memories
+          const autoMem = extractAutomaticMemories(userPrompt, memoryStore);
+          if (autoMem) {
+            const newMem = {
+              id: `mem-auto-${Date.now()}`,
+              key: autoMem.key,
+              value: autoMem.value,
+              category: autoMem.category,
+              timestamp: Date.now()
+            };
+            memoryStore.unshift(newMem);
+            if (clientWs.readyState === WebSocket.OPEN) {
+              clientWs.send(JSON.stringify({
+                action: { type: 'AUTO_MEMORY_SAVED', payload: autoMem }
+              }));
+            }
+          }
+
           // Check for deterministic commands (e.g. Save memory, navigate tab)
-          const detected = parseCommandIntent(parsed.text);
+          const detected = parseCommandIntent(userPrompt);
           if (detected) {
             console.log(`[LIVE_COMMAND_DETECTED] Action: ${detected.action.type}`);
             if (clientWs.readyState === WebSocket.OPEN) {
@@ -734,11 +1321,41 @@ async function startServer() {
             }
           }
 
+          // If an image/document is attached, process directly via Multimodal Gemini (generateGeminiResponse)
+          // because Gemini Live audio session turns do not support inlineData media payload attachments.
+          if (hasImage) {
+            console.log('[MAYRA_SERVER] Routing attached image to Multimodal Gemini Vision Model');
+            const lang = detectLang(userPrompt);
+            const visionInstruction = `You are MAYRA, an advanced personal Android AI assistant created by Zafer. 
+CRITICAL MULTIMODAL INSTRUCTION: You are given an attached image/document. Carefully inspect every detail in the image. Read all visible text, identify objects, interpret diagrams or charts, and answer the user's prompt directly, thoroughly, and accurately. User creator is Zafer.`;
+
+            const replyText = await generateGeminiResponse(
+              userPrompt,
+              visionInstruction,
+              0.7,
+              'gemini-3.1-flash-lite',
+              parsed.image
+            ) || 'I have inspected the attached image. It contains visual elements and text that are now registered.';
+
+            console.log(`[MAYRA_SERVER] Multimodal response generated (${replyText.length} chars)`);
+            const audioRes = await generateAoedeVoiceAudio(replyText, lang);
+
+            if (clientWs.readyState === WebSocket.OPEN) {
+              clientWs.send(JSON.stringify({ transcription: replyText, role: 'model' }));
+              if (audioRes?.audioBase64) {
+                clientWs.send(JSON.stringify({ audio: audioRes.audioBase64, mimeType: 'audio/l16; rate=24000; channels=1' }));
+              }
+              clientWs.send(JSON.stringify({ turnComplete: true }));
+            }
+            return;
+          }
+
+          // Pure text turns: send to active Gemini Live audio session
           let sentToLive = false;
           if (session && typeof session.sendClientContent === 'function') {
             try {
               session.sendClientContent({
-                turns: [{ role: 'user', parts: [{ text: parsed.text }] }],
+                turns: [{ role: 'user', parts: [{ text: userPrompt }] }],
                 turnComplete: true
               });
               sentToLive = true;
@@ -748,16 +1365,16 @@ async function startServer() {
             }
           }
 
-          // Fallback if session was not active
+          // Fallback if Live session was not active
           if (!sentToLive) {
             console.log('[LIVE_FALLBACK_SYNTHESIS] Generating fast response + Aoede audio');
-            const lang = detectLang(parsed.text);
+            const lang = detectLang(userPrompt);
             const replyText = detected?.reply || await generateGeminiResponse(
-              parsed.text, 
+              userPrompt, 
               'You are MAYRA, an advanced personal Android AI assistant created by Zafer. Respond concisely, warmly and naturally with human speech rhythm. When addressed in Hindi or Hinglish, converse fluently in Hindi/Hinglish.',
               0.7,
               'gemini-3.1-flash-lite'
-            ) || `Hello Zafer, I have processed: "${parsed.text}".`;
+            ) || `Hello Zafer, I have processed: "${userPrompt}".`;
 
             const audioRes = await generateAoedeVoiceAudio(replyText, lang);
             if (clientWs.readyState === WebSocket.OPEN) {

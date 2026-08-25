@@ -3,7 +3,7 @@ import {
   AssistantStatus, UserPersonalConfig, AssistantConfig, 
   VoiceGuardianConfig, AdvancedConfig, SkillItem, SubAgentItem, 
   IntegrationItem, MemoryItem, ChatMessage, SettingsSubScreen, ActiveTab,
-  PermissionItem
+  PermissionItem, AppearanceConfig, AgentTaskContext
 } from '../types';
 import { HomeScreen } from './screens/HomeScreen';
 import { ScannerScreen } from './screens/ScannerScreen';
@@ -11,11 +11,13 @@ import { MemoriesScreen } from './screens/MemoriesScreen';
 import { ChatScreen } from './screens/ChatScreen';
 import { MayraSettingsScreen } from './settings/MayraSettingsScreen';
 import { MayraLogo } from './common/MayraLogo';
+import { AudioWaveformIcon } from './common/AudioWaveformIcon';
 import { useMayraWakeWord } from '../hooks/useMayraWakeWord';
 import { FloatingMayraOverlay } from './overlay/FloatingMayraOverlay';
+import { AgentTaskHUD } from './agent/AgentTaskHUD';
 import { 
   Home, Camera, Brain, MessageSquare, 
-  Settings as SettingsIcon, Mic, Shield,
+  Settings as SettingsIcon, Shield,
   Trash2, Aperture, Plus
 } from 'lucide-react';
 
@@ -30,16 +32,23 @@ interface AndroidPhoneFrameProps {
   isListeningMode?: boolean;
   inputText: string;
   setInputText: (text: string) => void;
-  onSubmitPrompt: (customText?: string) => void;
+  onSubmitPrompt: (customText?: string, image?: { base64: string; mimeType?: string }) => void;
   onTriggerVoice: () => void;
   onSelectRoutineAction: (action: string) => void;
-  onSendVisionQuery: (query: string) => void;
+  onSendVisionQuery: (query: string, image?: { base64: string; mimeType?: string }) => void;
   onClearChat: () => void;
+  // Agent V1 Props
+  activeAgentTask?: AgentTaskContext | null;
+  onApproveAgentAction?: () => void;
+  onRejectAgentAction?: () => void;
+  onCancelAgentTask?: () => void;
   // Configs
   personalConfig: UserPersonalConfig;
   setPersonalConfig: React.Dispatch<React.SetStateAction<UserPersonalConfig>>;
   assistantConfig: AssistantConfig;
   setAssistantConfig: React.Dispatch<React.SetStateAction<AssistantConfig>>;
+  appearanceConfig: AppearanceConfig;
+  setAppearanceConfig: React.Dispatch<React.SetStateAction<AppearanceConfig>>;
   voiceGuardianConfig: VoiceGuardianConfig;
   setVoiceGuardianConfig: React.Dispatch<React.SetStateAction<VoiceGuardianConfig>>;
   advancedConfig: AdvancedConfig;
@@ -73,10 +82,16 @@ export const AndroidPhoneFrame: React.FC<AndroidPhoneFrameProps> = ({
   onSelectRoutineAction,
   onSendVisionQuery,
   onClearChat,
+  activeAgentTask,
+  onApproveAgentAction,
+  onRejectAgentAction,
+  onCancelAgentTask,
   personalConfig,
   setPersonalConfig,
   assistantConfig,
   setAssistantConfig,
+  appearanceConfig,
+  setAppearanceConfig,
   voiceGuardianConfig,
   setVoiceGuardianConfig,
   advancedConfig,
@@ -96,6 +111,8 @@ export const AndroidPhoneFrame: React.FC<AndroidPhoneFrameProps> = ({
   const [isFloatingOverlayOpen, setIsFloatingOverlayOpen] = useState<boolean>(false);
   const [scanCaptureSignal, setScanCaptureSignal] = useState<number>(0);
   const [memoriesAddSignal, setMemoriesAddSignal] = useState<number>(0);
+
+  const isDark = appearanceConfig?.darkMode ?? true;
 
   // Background Wake-Word activation ("Mayra", "Hey Mayra", "Mayra utho") & continuous listening
   const { isListeningForWakeWord } = useMayraWakeWord({
@@ -139,16 +156,29 @@ export const AndroidPhoneFrame: React.FC<AndroidPhoneFrameProps> = ({
   const lastAssistantMessage = messages.filter(m => m.sender === 'mayra').slice(-1)[0]?.text;
 
   return (
-    <div className="w-full h-full flex flex-col relative overflow-hidden bg-[#070913] select-none">
+    <div className={`w-full h-full flex flex-col relative overflow-hidden bg-[#070913] select-none ${
+      appearanceConfig.auraBorderMode ? 'ring-1 ring-inset ring-cyan-400/40 shadow-[inset_0_0_30px_rgba(6,182,212,0.18)]' : ''
+    }`}>
+
+      {/* Aura Border Pulse Effect */}
+      {appearanceConfig.auraBorderMode && (
+        <div className="absolute inset-0 pointer-events-none z-50 border border-cyan-400/30 rounded-none shadow-[inset_0_0_24px_rgba(6,182,212,0.25)] animate-pulse" />
+      )}
       
       {/* Top Floating Quick Controls Bar (Visible on Memories and Chat screens) */}
       {!isSettingsOpen && (activeTab === 'memories' || activeTab === 'chat') && (
         <div className="h-11 px-3 bg-slate-950/65 backdrop-blur-2xl flex items-center justify-between border-b border-white/10 z-20 shrink-0">
           <div className="flex items-center gap-2 min-w-0">
-            <MayraLogo size={20} showGlow={false} />
-            <span className="font-mono font-black text-xs text-white tracking-wider truncate">
-              MAYRA
+            <MayraLogo size={20} showGlow={false} iconVariant={appearanceConfig.launcherIconVariant} />
+            <span className="font-sans font-extrabold text-xs text-white tracking-wide truncate">
+              ★𝐌₳ᎽⱤ₳ ᥫ᭡
             </span>
+            {appearanceConfig.voiceVisualizerEnabled && status === 'SPEAKING' && (
+              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-400/40 text-[9px] font-mono text-cyan-300 animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+                <span>VOICE</span>
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
@@ -201,6 +231,8 @@ export const AndroidPhoneFrame: React.FC<AndroidPhoneFrameProps> = ({
             setPersonalConfig={setPersonalConfig}
             assistantConfig={assistantConfig}
             setAssistantConfig={setAssistantConfig}
+            appearanceConfig={appearanceConfig}
+            setAppearanceConfig={setAppearanceConfig}
             voiceGuardianConfig={voiceGuardianConfig}
             setVoiceGuardianConfig={setVoiceGuardianConfig}
             advancedConfig={advancedConfig}
@@ -225,7 +257,9 @@ export const AndroidPhoneFrame: React.FC<AndroidPhoneFrameProps> = ({
             status={status}
             personalConfig={personalConfig}
             assistantConfig={assistantConfig}
+            appearanceConfig={appearanceConfig}
             permissions={permissions}
+            messages={messages}
             inputText={inputText}
             setInputText={setInputText}
             onSubmitPrompt={onSubmitPrompt}
@@ -243,8 +277,8 @@ export const AndroidPhoneFrame: React.FC<AndroidPhoneFrameProps> = ({
         {/* Tab 2: Vision Scanner (Full bleed with transformed shutter) */}
         <div className={`w-full h-full ${activeTab === 'scan' && !isSettingsOpen ? 'block' : 'hidden'}`}>
           <ScannerScreen 
-            onSendVisionQuery={(query) => {
-              onSendVisionQuery(query);
+            onSendVisionQuery={(query, image) => {
+              onSendVisionQuery(query, image);
               setActiveTab('chat');
             }}
             triggerCaptureSignal={scanCaptureSignal}
@@ -291,19 +325,28 @@ export const AndroidPhoneFrame: React.FC<AndroidPhoneFrameProps> = ({
             onSubmitPrompt={onSubmitPrompt}
             onTriggerVoice={onTriggerVoice}
             onClearChat={onClearChat}
+            onOpenVisionScanner={() => setActiveTab('scan')}
           />
         </div>
       </div>
 
       {/* Android Bottom Navigation Bar (Equal 5-column grid with transformed center action) */}
       {!isSettingsOpen && (
-        <div className="h-16 bg-slate-950/70 backdrop-blur-2xl border-t border-white/10 px-1 z-20 shrink-0 grid grid-cols-5 items-center">
+        <div className={`h-16 border-t px-1 z-20 shrink-0 grid grid-cols-5 items-center transition-colors duration-200 ${
+          isDark 
+            ? 'bg-slate-950/70 backdrop-blur-2xl border-white/10 text-slate-400' 
+            : 'bg-white/95 backdrop-blur-2xl border-slate-200 text-slate-600 shadow-lg'
+        }`}>
           
           {/* Tab 1: Home */}
           <button
             onClick={() => setActiveTab('home')}
             className={`flex flex-col items-center justify-center gap-0.5 w-full min-w-0 py-1 transition-all ${
-              activeTab === 'home' ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.6)] font-bold' : 'text-slate-400 hover:text-slate-200'
+              activeTab === 'home' 
+                ? isDark 
+                  ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.6)] font-bold' 
+                  : 'text-cyan-600 font-bold'
+                : isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
             <Home className="w-4 h-4 shrink-0" />
@@ -314,7 +357,11 @@ export const AndroidPhoneFrame: React.FC<AndroidPhoneFrameProps> = ({
           <button
             onClick={() => setActiveTab('scan')}
             className={`flex flex-col items-center justify-center gap-0.5 w-full min-w-0 py-1 transition-all ${
-              activeTab === 'scan' ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.6)] font-bold' : 'text-slate-400 hover:text-slate-200'
+              activeTab === 'scan' 
+                ? isDark 
+                  ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.6)] font-bold' 
+                  : 'text-cyan-600 font-bold'
+                : isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
             <Camera className="w-4 h-4 shrink-0" />
@@ -332,7 +379,9 @@ export const AndroidPhoneFrame: React.FC<AndroidPhoneFrameProps> = ({
                   ? 'bg-gradient-to-tr from-purple-500 via-indigo-600 to-cyan-500 text-white shadow-[0_0_18px_rgba(168,85,247,0.6)] border-2 border-white/90'
                   : isListeningMode || status === 'LISTENING'
                   ? 'bg-gradient-to-tr from-cyan-500 via-blue-600 to-purple-600 text-white shadow-[0_0_22px_rgba(6,182,212,0.85)] border-2 border-cyan-300 animate-pulse'
-                  : 'bg-white/[0.08] hover:bg-white/[0.16] text-slate-200 hover:text-white border-2 border-white/25 hover:border-white/45 shadow-md'
+                  : isDark
+                  ? 'bg-white/[0.08] hover:bg-white/[0.16] text-slate-200 hover:text-white border-2 border-white/25 hover:border-white/45 shadow-md'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-2 border-slate-300 shadow-md'
               }`}
               title={
                 activeTab === 'scan'
@@ -349,7 +398,12 @@ export const AndroidPhoneFrame: React.FC<AndroidPhoneFrameProps> = ({
               ) : activeTab === 'memories' ? (
                 <Plus className="w-6 h-6 stroke-[2.5]" />
               ) : (
-                <Mic className={`w-6 h-6 stroke-[2] ${isListeningMode || status === 'LISTENING' ? 'fill-white/30 text-white' : 'fill-none text-slate-200'}`} />
+                <AudioWaveformIcon
+                  status={status}
+                  isListeningMode={isListeningMode}
+                  className="scale-110"
+                  barCount={4}
+                />
               )}
             </button>
           </div>
@@ -358,7 +412,11 @@ export const AndroidPhoneFrame: React.FC<AndroidPhoneFrameProps> = ({
           <button
             onClick={() => setActiveTab('memories')}
             className={`flex flex-col items-center justify-center gap-0.5 w-full min-w-0 py-1 transition-all ${
-              activeTab === 'memories' ? 'text-purple-400 drop-shadow-[0_0_8px_rgba(168,85,247,0.6)] font-bold' : 'text-slate-400 hover:text-slate-200'
+              activeTab === 'memories' 
+                ? isDark 
+                  ? 'text-purple-400 drop-shadow-[0_0_8px_rgba(168,85,247,0.6)] font-bold' 
+                  : 'text-purple-600 font-bold'
+                : isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
             <Brain className="w-4 h-4 shrink-0" />
@@ -369,7 +427,11 @@ export const AndroidPhoneFrame: React.FC<AndroidPhoneFrameProps> = ({
           <button
             onClick={() => setActiveTab('chat')}
             className={`flex flex-col items-center justify-center gap-0.5 w-full min-w-0 py-1 transition-all ${
-              activeTab === 'chat' ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.6)] font-bold' : 'text-slate-400 hover:text-slate-200'
+              activeTab === 'chat' 
+                ? isDark 
+                  ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.6)] font-bold' 
+                  : 'text-cyan-600 font-bold'
+                : isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
             <MessageSquare className="w-4 h-4 shrink-0" />
@@ -379,9 +441,19 @@ export const AndroidPhoneFrame: React.FC<AndroidPhoneFrameProps> = ({
       )}
 
       {/* Android Gesture Bar */}
-      <div className="h-4 bg-[#070913] flex items-center justify-center shrink-0">
-        <div className="w-28 h-1 bg-white/20 rounded-full"></div>
+      <div className={`h-4 flex items-center justify-center shrink-0 transition-colors ${
+        isDark ? 'bg-[#070913]' : 'bg-slate-100'
+      }`}>
+        <div className={`w-28 h-1 rounded-full ${isDark ? 'bg-white/20' : 'bg-slate-400'}`}></div>
       </div>
+
+      {/* Agent V1 Task HUD & Permission Gate Approval UI */}
+      <AgentTaskHUD
+        taskContext={activeAgentTask || null}
+        onApprove={onApproveAgentAction || (() => {})}
+        onReject={onRejectAgentAction || (() => {})}
+        onCancel={onCancelAgentTask || (() => {})}
+      />
 
       {/* iOS Magnifying Glass / Glassmorphism Floating Assistant Overlay */}
       <FloatingMayraOverlay
@@ -394,6 +466,7 @@ export const AndroidPhoneFrame: React.FC<AndroidPhoneFrameProps> = ({
         onTriggerVoice={onTriggerVoice}
         onSelectAction={onSelectRoutineAction}
         lastResponse={lastAssistantMessage}
+        appearanceConfig={appearanceConfig}
       />
 
     </div>

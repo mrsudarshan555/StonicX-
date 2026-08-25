@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 
+export * from './evelynAnimationEngine';
+
 export type CharacterEmotion = 
   | 'idle'
   | 'happy'

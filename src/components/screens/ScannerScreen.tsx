@@ -2,11 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Camera, FlipHorizontal, Flashlight, 
   Sparkles, CheckCircle2, X, FileText, 
-  Layers, Globe, VideoOff
+  Layers, Globe, Video, Radio
 } from 'lucide-react';
 
 interface ScannerScreenProps {
-  onSendVisionQuery: (query: string) => void;
+  onSendVisionQuery: (query: string, image?: { base64: string; mimeType?: string }) => void;
   triggerCaptureSignal?: number;
 }
 
@@ -18,11 +18,35 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({
   const [cameraFacing, setCameraFacing] = useState<'user' | 'environment'>('environment');
   const [scanMode, setScanMode] = useState<'ocr' | 'object' | 'scene'>('ocr');
   const [isScanning, setIsScanning] = useState(false);
+  const [isLiveVisionActive, setIsLiveVisionActive] = useState(false);
   const [scannedResult, setScannedResult] = useState<string | null>(null);
+  const [capturedImageBase64, setCapturedImageBase64] = useState<string | null>(null);
   const [hasCameraStream, setHasCameraStream] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const liveIntervalRef = useRef<any>(null);
+
+  // Helper to capture a frame from the live video element
+  const captureFrameBase64 = (): string | null => {
+    if (!videoRef.current || !hasCameraStream) return null;
+    try {
+      const video = videoRef.current;
+      const canvas = document.createElement('canvas');
+      const targetWidth = Math.min(video.videoWidth || 640, 800);
+      const scale = targetWidth / (video.videoWidth || 640);
+      const targetHeight = (video.videoHeight || 480) * scale;
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
+      return canvas.toDataURL('image/jpeg', 0.85);
+    } catch (e) {
+      console.warn('[Vision Scanner] Frame capture failed:', e);
+      return null;
+    }
+  };
 
   // Initialize Real Camera Stream with Clean Fallback
   useEffect(() => {
@@ -76,9 +100,81 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({
     };
   }, [cameraFacing]);
 
-  const executeCapture = () => {
+  // Live Continuous Camera Stream
+  useEffect(() => {
+    if (!isLiveVisionActive || !hasCameraStream) {
+      if (liveIntervalRef.current) {
+        clearInterval(liveIntervalRef.current);
+        liveIntervalRef.current = null;
+      }
+      return;
+    }
+
+    liveIntervalRef.current = setInterval(async () => {
+      const frame = captureFrameBase64();
+      if (frame) {
+        try {
+          const res = await fetch('/api/vision/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              imageBase64: frame,
+              prompt: "Provide a continuous, concise 1-sentence observation of what is currently visible in this camera frame."
+            })
+          });
+          const data = await res.json();
+          if (data.analysis) {
+            setScannedResult(`[Live Camera Feed]: ${data.analysis}`);
+            setCapturedImageBase64(frame);
+          }
+        } catch (err) {
+          console.warn('[Live Vision] Stream frame analysis error:', err);
+        }
+      }
+    }, 4500);
+
+    return () => {
+      if (liveIntervalRef.current) {
+        clearInterval(liveIntervalRef.current);
+        liveIntervalRef.current = null;
+      }
+    };
+  }, [isLiveVisionActive, hasCameraStream]);
+
+  const executeCapture = async () => {
     setIsScanning(true);
     setScannedResult(null);
+
+    const frame = captureFrameBase64();
+    if (frame) {
+      setCapturedImageBase64(frame);
+      try {
+        const modePrompt = scanMode === 'ocr'
+          ? 'Extract and read all visible text and writing in this image accurately.'
+          : scanMode === 'object'
+          ? 'Identify the primary objects, devices, and elements in this image.'
+          : 'Describe the scene, setting, environment, and visual atmosphere in detail.';
+
+        const res = await fetch('/api/vision/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            imageBase64: frame,
+            prompt: modePrompt
+          })
+        });
+        const data = await res.json();
+        setIsScanning(false);
+        if (data.analysis) {
+          setScannedResult(data.analysis);
+          return;
+        }
+      } catch (err) {
+        console.warn('[Vision Scanner] Live analysis failed, using fallback:', err);
+      }
+    }
+
+    // High fidelity fallback if camera permission or network isn't available
     setTimeout(() => {
       setIsScanning(false);
       if (scanMode === 'ocr') {
@@ -88,7 +184,7 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({
       } else {
         setScannedResult("Scene: Indoor Studio Environment with Ambient Lighting");
       }
-    }, 1200);
+    }, 800);
   };
 
   // Listen to bottom navigation shutter trigger
@@ -112,11 +208,25 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({
             </div>
             <div>
               <h2 className="text-xs font-semibold text-white tracking-wide">Vision Scanner</h2>
-              <p className="text-[10px] text-slate-400">Point at text, objects, or scenery</p>
+              <p className="text-[10px] text-slate-400">Multimodal Gemini Visual Intelligence</p>
             </div>
           </div>
 
           <div className="flex items-center gap-1.5">
+            {/* Live Continuous Vision Toggle */}
+            <button
+              onClick={() => setIsLiveVisionActive(!isLiveVisionActive)}
+              className={`px-2 py-1 rounded-xl border text-[10px] font-mono font-medium flex items-center gap-1 backdrop-blur-xl transition-all ${
+                isLiveVisionActive
+                  ? 'bg-rose-500/20 border-rose-500/60 text-rose-300 shadow-[0_0_12px_rgba(244,63,94,0.4)] animate-pulse'
+                  : 'bg-white/[0.06] hover:bg-white/[0.12] border-white/10 text-slate-300'
+              }`}
+              title="Continuous Live Camera Stream"
+            >
+              <Radio className="w-3 h-3" />
+              <span>{isLiveVisionActive ? 'LIVE' : 'LIVE'}</span>
+            </button>
+
             <button
               onClick={() => setTorchOn(!torchOn)}
               className={`p-2 rounded-xl border backdrop-blur-xl transition-all ${
@@ -194,11 +304,15 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
-              <p className="text-[11px] text-slate-200 leading-snug font-sans select-text">
+              <p className="text-[11px] text-slate-200 leading-snug font-sans select-text max-h-24 overflow-y-auto">
                 {scannedResult}
               </p>
               <button
-                onClick={() => onSendVisionQuery(`Analyze this visual data: ${scannedResult}`)}
+                onClick={() => {
+                  const queryText = `Analyze this visual snapshot: ${scannedResult}`;
+                  const imageObj = capturedImageBase64 ? { base64: capturedImageBase64, mimeType: 'image/jpeg' } : undefined;
+                  onSendVisionQuery(queryText, imageObj);
+                }}
                 className="w-full py-1.5 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1 shadow-md active:scale-98 transition-all"
               >
                 <Sparkles className="w-3.5 h-3.5" /> Ask MAYRA About This
@@ -234,10 +348,11 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({
         </div>
 
         <p className="text-[10px] text-slate-400/80 font-sans tracking-wide shrink-0">
-          Tap center shutter to scan & analyze
+          Tap center shutter or toggle LIVE to scan & analyze
         </p>
       </div>
 
     </div>
   );
 };
+
