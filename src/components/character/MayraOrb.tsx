@@ -163,6 +163,12 @@ export const ORB_STYLES: OrbStyleDefinition[] = [
     category: 'cosmic'
   },
   {
+    id: 'galaxy_swirl',
+    name: 'Galaxy Swirl',
+    description: 'Swirling cosmic nebula vortex with multi-arm stardust particles spiraling into a stellar core',
+    category: 'cosmic'
+  },
+  {
     id: 'pulse_reactor',
     name: 'Pulse Reactor',
     description: 'Rotating hexagonal frame with status-arc segments and glowing core',
@@ -311,6 +317,7 @@ export const MayraOrb: React.FC<MayraOrbProps> = ({
 
     // Pre-initialize particles / mesh points for styles that need persistent state
     const particleCount = normalizedStyle === 'particle_swirl' ? 120 
+      : normalizedStyle === 'galaxy_swirl' ? 160
       : normalizedStyle === 'particle_swarm' ? 90 
       : normalizedStyle === 'supernova' ? 80
       : normalizedStyle === 'neural_synapse' ? 24
@@ -335,6 +342,30 @@ export const MayraOrb: React.FC<MayraOrbProps> = ({
         z: (Math.random() - 0.5) * 2
       };
     });
+
+    // Galaxy Swirl stardust spiral particles (dense purple/blue/pink/orange vortex)
+    const galaxyStardust = normalizedStyle === 'galaxy_swirl'
+      ? Array.from({ length: 160 }, (_, i) => {
+          const armIndex = i % 3; // 3 spiral vortex arms
+          const armOffset = armIndex * ((Math.PI * 2) / 3);
+          const distFactor = Math.pow(Math.random(), 0.75);
+          const startDist = (0.16 + distFactor * 0.78) * radius;
+          const speed = 0.35 + Math.random() * 0.45;
+          const rad = 0.7 + Math.random() * 2.2;
+          const cosmicPalette = ['#A855F7', '#6366F1', '#00D2FF', '#EC4899', '#FB923C', '#F472B6', '#FDE68A', '#FFFFFF'];
+          return {
+            armOffset,
+            dist: startDist,
+            spiralTightness: 3.4 + (Math.random() - 0.5) * 0.6,
+            speed,
+            size: rad,
+            color: cosmicPalette[i % cosmicPalette.length],
+            alpha: 0.4 + Math.random() * 0.6,
+            orbitOffset: Math.random() * Math.PI * 2,
+            radialSpeed: 0.08 + Math.random() * 0.06
+          };
+        })
+      : [];
 
     // Synapse Nodes
     const synapseNodes = Array.from({ length: 18 }, (_, i) => {
@@ -429,6 +460,140 @@ export const MayraOrb: React.FC<MayraOrbProps> = ({
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius * 0.38 * energyPulse, 0, Math.PI * 2);
         ctx.fill();
+      }
+
+      // ========================================================
+      // GALAXY SWIRL / NEBULA VORTEX (Dense multi-colored spiral vortex)
+      // ========================================================
+      else if (normalizedStyle === 'galaxy_swirl') {
+        const galaxyRot = elapsed * 0.9 * speedFactor;
+
+        // 1. Multi-layered rotating cosmic nebula gas clouds
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        ctx.rotate(-galaxyRot * 0.4);
+
+        // Violet-purple outer cloud
+        const neb1 = ctx.createRadialGradient(-radius * 0.22, -radius * 0.15, 0, 0, 0, radius * 0.95);
+        neb1.addColorStop(0, 'rgba(168, 85, 247, 0.32)');
+        neb1.addColorStop(0.5, 'rgba(99, 102, 241, 0.16)');
+        neb1.addColorStop(1, 'transparent');
+        ctx.fillStyle = neb1;
+        ctx.beginPath();
+        ctx.arc(0, 0, radius * 0.95, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Neon Pink & Cyan opposing gas cloud
+        const neb2 = ctx.createRadialGradient(radius * 0.25, radius * 0.2, 0, 0, 0, radius * 0.88);
+        neb2.addColorStop(0, 'rgba(236, 72, 153, 0.28)');
+        neb2.addColorStop(0.45, 'rgba(6, 182, 212, 0.15)');
+        neb2.addColorStop(1, 'transparent');
+        ctx.fillStyle = neb2;
+        ctx.beginPath();
+        ctx.arc(0, 0, radius * 0.88, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // 2. Faint Spiral Arm Guide Streaks
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        ctx.rotate(galaxyRot);
+        for (let arm = 0; arm < 3; arm++) {
+          const armAngle = (arm * (Math.PI * 2 / 3));
+          ctx.beginPath();
+          for (let step = 0; step < 40; step++) {
+            const r = (0.12 + (step / 40) * 0.82) * radius;
+            const theta = armAngle + Math.log(r * 0.1 + 1) * 3.4;
+            const sx = Math.cos(theta) * r;
+            const sy = Math.sin(theta) * r;
+            if (step === 0) ctx.moveTo(sx, sy);
+            else ctx.lineTo(sx, sy);
+          }
+          ctx.strokeStyle = arm === 0 ? 'rgba(168, 85, 247, 0.22)' : arm === 1 ? 'rgba(0, 210, 255, 0.18)' : 'rgba(236, 72, 153, 0.18)';
+          ctx.lineWidth = 2.4 * dpr;
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        // 3. Dense Inward Swirling Galaxy Particles with Spiral Trails
+        galaxyStardust.forEach((gp) => {
+          const totalLifeSpan = 5.5 / (gp.speed * speedFactor);
+          const progress = ((elapsed * gp.speed * 0.45 + gp.orbitOffset) % totalLifeSpan) / totalLifeSpan;
+          // Inward spiral radius from outer edge (~0.92 radius) down to core (~0.12 radius)
+          const currentR = (0.92 - progress * 0.78) * radius * energyPulse;
+          const currentTheta = gp.armOffset + Math.log(currentR * 0.08 + 1) * gp.spiralTightness + galaxyRot * gp.speed;
+
+          const px = centerX + Math.cos(currentTheta) * currentR;
+          const py = centerY + Math.sin(currentTheta) * currentR;
+
+          // Trail segment
+          const prevR = Math.min(radius * 0.94, currentR + 4.5 * dpr);
+          const prevTheta = currentTheta - 0.16 * (gp.speed / (currentR / radius + 0.15));
+          const prevX = centerX + Math.cos(prevTheta) * prevR;
+          const prevY = centerY + Math.sin(prevTheta) * prevR;
+
+          const fade = Math.sin(progress * Math.PI);
+          const dynamicAlpha = gp.alpha * fade;
+
+          ctx.beginPath();
+          ctx.moveTo(prevX, prevY);
+          ctx.lineTo(px, py);
+          ctx.strokeStyle = gp.color;
+          ctx.lineWidth = gp.size * dpr * 0.8;
+          ctx.globalAlpha = dynamicAlpha * 0.65;
+          ctx.stroke();
+
+          // Particle Head
+          ctx.beginPath();
+          ctx.arc(px, py, gp.size * dpr * 0.85, 0, Math.PI * 2);
+          ctx.fillStyle = gp.color;
+          ctx.globalAlpha = dynamicAlpha;
+          ctx.fill();
+
+          // Specular Glint Center
+          if (gp.size > 1.2) {
+            ctx.beginPath();
+            ctx.arc(px, py, gp.size * dpr * 0.4, 0, Math.PI * 2);
+            ctx.fillStyle = '#FFFFFF';
+            ctx.globalAlpha = dynamicAlpha * 0.95;
+            ctx.fill();
+          }
+        });
+
+        // 4. Luminous Galactic Singularity & Starburst Core
+        ctx.globalAlpha = 1;
+        const coreR = radius * 0.32 * energyPulse;
+        const starGrad = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, coreR);
+        starGrad.addColorStop(0, '#FFFFFF');
+        starGrad.addColorStop(0.2, '#FDE68A');
+        starGrad.addColorStop(0.45, '#EC4899');
+        starGrad.addColorStop(0.75, '#8B5CF6');
+        starGrad.addColorStop(1, 'transparent');
+        ctx.fillStyle = starGrad;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, coreR, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Starburst cross diffraction rays
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        ctx.rotate(-galaxyRot * 1.4);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.lineWidth = 1.4 * dpr;
+        const rayLen = radius * 0.48 * energyPulse;
+        ctx.beginPath();
+        ctx.moveTo(-rayLen, 0); ctx.lineTo(rayLen, 0);
+        ctx.moveTo(0, -rayLen); ctx.lineTo(0, rayLen);
+        ctx.stroke();
+
+        ctx.strokeStyle = 'rgba(251, 146, 60, 0.45)';
+        ctx.lineWidth = 1.0 * dpr;
+        const diagLen = rayLen * 0.65;
+        ctx.beginPath();
+        ctx.moveTo(-diagLen, -diagLen); ctx.lineTo(diagLen, diagLen);
+        ctx.moveTo(-diagLen, diagLen); ctx.lineTo(diagLen, -diagLen);
+        ctx.stroke();
+        ctx.restore();
       }
 
       // ========================================================

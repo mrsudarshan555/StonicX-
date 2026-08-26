@@ -142,8 +142,8 @@ export const MemoriesScreen: React.FC<MemoriesScreenProps> = ({
             <Brain className="w-4 h-4" />
           </div>
           <div>
-            <h2 className="text-xs font-mono font-bold text-white uppercase tracking-wider">Context & Memories</h2>
-            <p className="text-[10px] text-slate-400 font-sans">Persistent Knowledge Base & Family Contacts</p>
+            <h2 className="text-xs font-orbitron font-extrabold text-white uppercase tracking-wider">Context & Memories</h2>
+            <p className="text-[10px] text-slate-400 font-normal">Persistent Knowledge Base & Family Contacts</p>
           </div>
         </div>
 
@@ -170,11 +170,11 @@ export const MemoriesScreen: React.FC<MemoriesScreenProps> = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
               <Heart className="w-4 h-4 text-rose-400" />
-              <span className="text-xs font-semibold text-white tracking-wide">
+              <span className="text-xs font-orbitron font-bold text-white tracking-wide">
                 Family & Priority Contacts
               </span>
             </div>
-            <span className="text-[10px] text-slate-400">Quick Call & Message</span>
+            <span className="text-[10px] text-slate-400 font-normal">Quick Call & Message</span>
           </div>
 
           {familyContacts.length === 0 ? (
@@ -196,12 +196,12 @@ export const MemoriesScreen: React.FC<MemoriesScreenProps> = ({
                 >
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-semibold text-white">{contact.name}</span>
+                      <span className="text-xs font-orbitron font-bold text-white">{contact.name}</span>
                       <span className="px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-300 text-[9px] font-medium">
                         {contact.relationship}
                       </span>
                     </div>
-                    <p className="text-[10px] text-slate-400 mt-0.5">{contact.whatsappNumber}</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5 font-normal">{contact.whatsappNumber}</p>
                   </div>
 
                   <div className="flex items-center gap-1.5">
@@ -229,7 +229,7 @@ export const MemoriesScreen: React.FC<MemoriesScreenProps> = ({
         {/* 2. SEARCH & CONTEXT MEMORIES */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-semibold text-white tracking-wide">
+            <h3 className="text-xs font-orbitron font-bold text-white tracking-wide">
               Memory Vault ({searchResults.length})
             </h3>
             {searchQuery && (

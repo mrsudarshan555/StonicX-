@@ -4,15 +4,18 @@ import {
   Sparkles, CheckCircle2, X, FileText, 
   Layers, Globe, Video, Radio
 } from 'lucide-react';
+import { CameraAspectRatio } from '../../types';
 
 interface ScannerScreenProps {
   onSendVisionQuery: (query: string, image?: { base64: string; mimeType?: string }) => void;
   triggerCaptureSignal?: number;
+  aspectRatio?: CameraAspectRatio;
 }
 
 export const ScannerScreen: React.FC<ScannerScreenProps> = ({ 
   onSendVisionQuery,
-  triggerCaptureSignal
+  triggerCaptureSignal,
+  aspectRatio = '9:16'
 }) => {
   const [torchOn, setTorchOn] = useState(false);
   const [cameraFacing, setCameraFacing] = useState<'user' | 'environment'>('environment');
@@ -194,11 +197,29 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({
     }
   }, [triggerCaptureSignal]);
 
+  // Compute aspect ratio classes dynamically based on selected ratio
+  const getAspectRatioClasses = () => {
+    switch (aspectRatio) {
+      case '9:16':
+        return 'w-full aspect-[9/16] max-h-[460px]';
+      case '3:4':
+        return 'w-full aspect-[3/4] max-h-[400px]';
+      case '1:1':
+        return 'w-full aspect-square max-h-[340px]';
+      case '4:3':
+        return 'w-full aspect-[4/3] max-h-[300px]';
+      case 'full':
+        return 'w-full h-[460px] max-h-[80vh]';
+      default:
+        return 'w-full aspect-[9/16] max-h-[460px]';
+    }
+  };
+
   return (
-    <div className="w-full h-full flex flex-col justify-center items-center overflow-hidden bg-[#050711] text-slate-200 select-none px-3 py-1">
+    <div className="w-full h-full flex flex-col justify-center items-center overflow-y-auto overflow-x-hidden bg-[#050711] text-slate-200 select-none px-3 py-1 scrollbar-none">
       
       {/* Unified Compact Scanner Container */}
-      <div className="w-full max-w-[360px] flex flex-col items-center gap-2 my-auto">
+      <div className="w-full max-w-[360px] flex flex-col items-center gap-2 my-auto py-1">
         
         {/* 1. Scanner Heading + Camera Controls */}
         <div className="w-full px-2 py-1 flex items-center justify-between shrink-0">
@@ -249,8 +270,8 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({
           </div>
         </div>
 
-        {/* 2. Camera / Scanner Area (Compact, framed viewport with real video or HUD) */}
-        <div className="w-full aspect-[4/3] max-h-[300px] relative flex items-center justify-center overflow-hidden bg-gradient-to-b from-slate-950/50 via-slate-900/30 to-slate-950/70 rounded-2xl border border-white/15 shadow-2xl">
+        {/* 2. Camera / Scanner Area (Configurable Aspect Ratio, framed viewport with real video or HUD) */}
+        <div className={`${getAspectRatioClasses()} relative flex items-center justify-center overflow-hidden bg-gradient-to-b from-slate-950/50 via-slate-900/30 to-slate-950/70 rounded-2xl border border-white/15 shadow-2xl transition-all duration-300 shrink-0`}>
           {/* Real Video Camera Stream */}
           {hasCameraStream ? (
             <video
@@ -270,13 +291,13 @@ export const ScannerScreen: React.FC<ScannerScreenProps> = ({
           {/* Corner Scanner Guides */}
           <div className="w-[82%] h-[78%] relative pointer-events-none flex items-center justify-center z-10">
             {/* Top-Left */}
-            <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-cyan-400 rounded-tl-lg shadow-[0_0_8px_rgba(6,182,212,0.6)]" />
+            <div className="absolute top-0 left-0 w-10 h-10 border-t-[3px] border-l-[3px] border-cyan-400 rounded-tl-xl shadow-[0_0_15px_rgba(6,182,212,0.9),inset_0_0_8px_rgba(6,182,212,0.3)]" />
             {/* Top-Right */}
-            <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-cyan-400 rounded-tr-lg shadow-[0_0_8px_rgba(6,182,212,0.6)]" />
+            <div className="absolute top-0 right-0 w-10 h-10 border-t-[3px] border-r-[3px] border-cyan-400 rounded-tr-xl shadow-[0_0_15px_rgba(6,182,212,0.9),inset_0_0_8px_rgba(6,182,212,0.3)]" />
             {/* Bottom-Left */}
-            <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-cyan-400 rounded-bl-lg shadow-[0_0_8px_rgba(6,182,212,0.6)]" />
+            <div className="absolute bottom-0 left-0 w-10 h-10 border-b-[3px] border-l-[3px] border-cyan-400 rounded-bl-xl shadow-[0_0_15px_rgba(6,182,212,0.9),inset_0_0_8px_rgba(6,182,212,0.3)]" />
             {/* Bottom-Right */}
-            <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-cyan-400 rounded-br-lg shadow-[0_0_8px_rgba(6,182,212,0.6)]" />
+            <div className="absolute bottom-0 right-0 w-10 h-10 border-b-[3px] border-r-[3px] border-cyan-400 rounded-br-xl shadow-[0_0_15px_rgba(6,182,212,0.9),inset_0_0_8px_rgba(6,182,212,0.3)]" />
 
             {/* Animated Laser Scanning Line */}
             {isScanning && (

@@ -2,11 +2,12 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { AssistantStatus, UserPersonalConfig, AssistantConfig, PermissionItem, CharacterModelMetadata, ChatMessage, AppearanceConfig } from '../../types';
 import { MayraAvatar } from '../character/MayraAvatar';
 import { MayraOrb, ORB_STYLES, normalizeOrbStyle } from '../character/MayraOrb';
+import { HomeAtmosphereBackground } from '../character/HomeAtmosphereBackground';
 import { useCharacterController } from '../../hooks/useCharacterController';
 import { useBarehandsGesture } from '../../hooks/useBarehandsGesture';
 import { BarehandsCameraOverlay } from '../character/BarehandsCameraOverlay';
 import { MayraLogo } from '../common/MayraLogo';
-import { AttachmentBottomSheet } from '../common/AttachmentBottomSheet';
+import { AttachmentBottomSheet, AttachmentItem } from '../common/AttachmentBottomSheet';
 import { getDynamicSuggestions } from '../../utils/dynamicSuggestions';
 import { 
   Settings as SettingsIcon, Send, Paperclip, 
@@ -23,7 +24,7 @@ interface HomeScreenProps {
   messages?: ChatMessage[];
   inputText: string;
   setInputText: (text: string) => void;
-  onSubmitPrompt: (customText?: string) => void;
+  onSubmitPrompt: (customText?: string, image?: { base64: string; mimeType?: string; name?: string; size?: string }) => void;
   onTriggerVoice: () => void;
   onSelectAction: (action: string) => void;
   onOpenSettings: () => void;
@@ -85,7 +86,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const [isScreenSharing, setIsScreenSharing] = useState<boolean>(false);
   const [screenShareNotice, setScreenShareNotice] = useState<string | null>(null);
   const [lockToast, setLockToast] = useState<string | null>(null);
-  const [attachedFile, setAttachedFile] = useState<{ name: string; size: string } | null>(null);
+  const [attachedFile, setAttachedFile] = useState<AttachmentItem | null>(null);
   const [isAttachmentSheetOpen, setIsAttachmentSheetOpen] = useState<boolean>(false);
   const [isProactivePromptActive, setIsProactivePromptActive] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -157,18 +158,57 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       const sizeStr = file.size > 1024 * 1024 
         ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
         : `${Math.round(file.size / 1024)} KB`;
-      setAttachedFile({ name: file.name, size: sizeStr });
+      
+      const reader = new FileReader();
+      reader.onload = () => {
+        setAttachedFile({
+          type: file.type.startsWith('image/') ? 'gallery' : 'file',
+          name: file.name,
+          size: sizeStr,
+          mimeType: file.type || 'application/octet-stream',
+          dataUrl: reader.result as string,
+          file
+        });
+      };
+      reader.readAsDataURL(file);
     }
   };
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     resetIdleTimer();
+    const isDoc = attachedFile?.mimeType?.includes('pdf') || 
+                  attachedFile?.mimeType?.includes('text') || 
+                  attachedFile?.mimeType?.includes('csv') || 
+                  attachedFile?.mimeType?.includes('json') ||
+                  attachedFile?.name.match(/\.(pdf|txt|csv|json|md|doc|docx)$/i);
+
+    const defaultPrompt = isDoc
+      ? `Please read and analyze this attached document (${attachedFile?.name}). Summarize key points and explain its contents.`
+      : 'Please analyze what is in this image in detail.';
+
     const promptToSend = attachedFile && !inputText.trim()
-      ? `[Attached file: ${attachedFile.name} (${attachedFile.size})]`
+      ? defaultPrompt
       : inputText;
-    console.log(`[HOME_TEXT_SUBMIT] Typed prompt submitted: "${promptToSend.trim()}"`);
-    onSubmitPrompt(promptToSend);
+    
+    const filePayload = attachedFile?.dataUrl 
+      ? { 
+          base64: attachedFile.dataUrl, 
+          mimeType: attachedFile.mimeType || (isDoc ? 'application/pdf' : 'image/jpeg'),
+          name: attachedFile.name,
+          size: attachedFile.size
+        }
+      : undefined;
+
+    console.log('[MAYRA HomeScreen] Submitting message with attachment data:', {
+      prompt: promptToSend,
+      hasAttachment: Boolean(attachedFile),
+      attachmentName: attachedFile?.name,
+      mimeType: filePayload?.mimeType,
+      dataUrlLength: attachedFile?.dataUrl ? attachedFile.dataUrl.length : 0
+    });
+
+    onSubmitPrompt(promptToSend, filePayload);
     setAttachedFile(null);
   };
 
@@ -257,8 +297,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   return (
     <div className="relative w-full h-full flex flex-col justify-between overflow-hidden bg-[#070914] text-slate-100 select-none min-h-0">
       
-      {/* 1. Dynamic Space Backdrop Gradient */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#070B18] via-[#050711] to-[#030408] pointer-events-none" />
+      {/* 1. Atmospheric Ambient Background Depth & Drifting Particles */}
+      <HomeAtmosphereBackground status={status} appearanceConfig={appearanceConfig} />
 
       {/* 2. FULL-SCREEN MAYRA 3D CHARACTER LAYER OR ORB LAYER */}
       {appearanceConfig?.useOrbOnHome ? (
@@ -320,7 +360,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <header className="w-full flex items-center justify-between">
           {/* Left: MAYRA Branding with Styled Name & Online Status */}
           <div className="flex items-center gap-2 min-w-0">
-            <MayraLogo size={24} showGlow={true} />
+            <MayraLogo size={28} showGlow={true} variant="raw" />
             <div className="flex items-center gap-1.5 min-w-0">
               <span className="font-sans font-bold text-sm text-white tracking-wide truncate">
                 ★𝐌₳ᎽⱤ₳ ᥫ᭡
@@ -363,6 +403,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               <Hand className={`w-3.5 h-3.5 ${isHandTrackingLoading ? 'animate-pulse text-cyan-400' : ''}`} />
             </button>
 
+            {/* Screen Share / Cast Button */}
             <button
               onClick={handleToggleScreenShare}
               className={`p-1.5 rounded-xl border backdrop-blur-xl transition-all ${
@@ -375,6 +416,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               <ScreenShare className="w-3.5 h-3.5" />
             </button>
 
+            {/* Character Lock / Unlock Button */}
             <button
               onClick={handleToggleLock}
               className={`p-1.5 rounded-xl backdrop-blur-xl border transition-all ${
@@ -387,22 +429,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               {lockState.isLocked ? <Lock className="w-3.5 h-3.5 text-amber-400" /> : <Unlock className="w-3.5 h-3.5 text-slate-300" />}
             </button>
 
+            {/* Settings Gear Icon: Blue rotating gear */}
             <button
               onClick={onOpenSettings}
-              className="p-1.5 bg-white/[0.06] hover:bg-white/[0.12] backdrop-blur-xl border border-white/10 rounded-xl text-slate-300 hover:text-white transition-all"
+              className="p-1.5 bg-cyan-950/40 hover:bg-cyan-900/50 backdrop-blur-xl border border-cyan-400/30 hover:border-cyan-400/60 rounded-xl text-cyan-400 hover:text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.25)] transition-all group"
               title={`Settings (${userName})`}
             >
-              <SettingsIcon className="w-3.5 h-3.5" />
+              <SettingsIcon className="w-3.5 h-3.5 text-cyan-400 animate-[spin_10s_linear_infinite]" />
             </button>
           </div>
         </header>
-
-        {/* Minimal Subtle Top Greeting Text */}
-        <div className="w-full text-center py-0.5">
-          <p className="text-xs font-medium text-slate-300/80 tracking-wide">
-            Hi {userName}, what should we do today?
-          </p>
-        </div>
       </div>
 
       {/* Floating Notices */}
@@ -530,10 +566,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         isOpen={isAttachmentSheetOpen}
         onClose={() => setIsAttachmentSheetOpen(false)}
         onSelectAttachment={(item) => {
-          setAttachedFile({
-            name: item.name,
-            size: item.size
-          });
+          setAttachedFile(item);
         }}
       />
 

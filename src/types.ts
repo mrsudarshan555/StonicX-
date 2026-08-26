@@ -229,6 +229,7 @@ export interface AssistantConfig {
 
 export type OrbStyleType = 
   | 'particle_swirl'
+  | 'galaxy_swirl'
   | 'pulse_reactor'
   | 'particle_swarm'
   | 'liquid_core'
@@ -256,6 +257,12 @@ export type OrbTypePreset = 'classic' | 'energy' | 'neon' | 'hologram';
 
 export type AppLauncherIconVariant = 'cyan_default' | 'amber_gold' | 'violet_cosmic' | 'stealth_obsidian';
 
+export type AppThemePreset = 'cyan' | 'aura_red' | 'purple' | 'emerald' | 'midnight';
+
+export type HeadingFontType = 'system' | 'orbitron' | 'sora' | 'manrope' | 'space_grotesk';
+
+export type CameraAspectRatio = '9:16' | '3:4' | '1:1' | '4:3' | 'full';
+
 export interface AppearanceConfig {
   darkMode: boolean;
   orbStyle: OrbStyleType;
@@ -267,6 +274,9 @@ export interface AppearanceConfig {
   voiceVisualizerEnabled?: boolean; // ambient orb dot grows when speaking
   auraBorderMode?: boolean; // rotating glowing border around phone screen edge
   launcherIconVariant?: AppLauncherIconVariant; // launcher icon theme
+  appTheme?: AppThemePreset; // user-selectable accent theme ('cyan' | 'aura_red' | 'purple' | 'emerald' | 'midnight')
+  headingFont?: HeadingFontType; // user-selectable text style font picker (default: 'system')
+  cameraAspectRatio?: CameraAspectRatio; // Vision scanner frame aspect ratio ('9:16' | '3:4' | '1:1' | '4:3' | 'full')
 }
 
 export interface LinkedDeviceItem {

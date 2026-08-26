@@ -24,6 +24,7 @@ import { LinkedDevicesView } from './LinkedDevicesView';
 import { OfflineModelsView } from './OfflineModelsView';
 import { WhiteboardTool } from '../tools/WhiteboardTool';
 import { MayraLogo } from '../common/MayraLogo';
+import { AppIconTile } from '../common/AppIconTile';
 import { ORB_STYLES, ORB_COLORS } from '../character/MayraOrb';
 import { 
   Settings as SettingsIcon, User, Globe, Sparkles, 
@@ -352,14 +353,14 @@ interface SettingCategorySection {
           title: 'Orb Customization Studio',
           subtitle: `Rendering physics • Rainbow hue spectrum • Voice visualizer & aura edge`,
           badge: 'STUDIO',
-          icon: <Sparkles className="w-4 h-4 text-cyan-400" />
+          icon: <AppIconTile icon={Sparkles} color="cyan" size="md" />
         },
         {
           id: 'appearance' as SettingsSubScreen,
           title: 'Appearance & Display',
-          subtitle: `${isDark ? 'Dark Mode' : 'Light Mode'} • ${currentOrbStyleName} • ${appearanceConfig.orbSize}dp`,
+          subtitle: `${isDark ? 'Dark Mode' : 'Light Mode'} • ${currentOrbStyleName} • Theme Presets`,
           badge: isDark ? 'DARK' : 'LIGHT',
-          icon: <Palette className="w-4 h-4 text-purple-400" />
+          icon: <AppIconTile icon={Palette} color="purple" size="md" />
         }
       ]
     },
@@ -371,14 +372,14 @@ interface SettingCategorySection {
           title: 'Android System Integration',
           subtitle: 'Calls • Direct SMS • WhatsApp auto-tap • Notifications',
           badge: 'KOTLIN',
-          icon: <Smartphone className="w-4 h-4 text-cyan-400" />
+          icon: <AppIconTile icon={Smartphone} color="blue" size="md" />
         },
         {
           id: 'permissions' as SettingsSubScreen,
           title: 'Permissions Center',
           subtitle: `${grantedPermissionsCount} of ${permissions.length} active • Assistant, Screen, Mic, Overlay`,
           badge: `${grantedPermissionsCount}/${permissions.length}`,
-          icon: <Shield className="w-4 h-4 text-emerald-400" />
+          icon: <AppIconTile icon={Shield} color="emerald" size="md" />
         }
       ]
     },
@@ -389,13 +390,13 @@ interface SettingCategorySection {
           id: 'personal' as SettingsSubScreen,
           title: 'Personal',
           subtitle: `${personalConfig.preferredName || personalConfig.fullName} • API configuration`,
-          icon: <User className="w-4 h-4 text-blue-400" />
+          icon: <AppIconTile icon={User} color="indigo" size="md" />
         },
         {
           id: 'country_code' as SettingsSubScreen,
           title: 'Country Code',
           subtitle: `${personalConfig.countryName} (${personalConfig.countryDialCode})`,
-          icon: <Globe className="w-4 h-4 text-cyan-400" />
+          icon: <AppIconTile icon={Globe} color="teal" size="md" />
         }
       ]
     },
@@ -406,26 +407,26 @@ interface SettingCategorySection {
           id: 'assistant' as SettingsSubScreen,
           title: 'MAYRA AI Core',
           subtitle: `${assistantConfig.personaTone.toUpperCase()} • ${assistantConfig.language}`,
-          icon: <Sparkles className="w-4 h-4 text-purple-400" />
+          icon: <AppIconTile icon={Sparkles} color="purple" size="md" />
         },
         {
           id: 'offline_models' as SettingsSubScreen,
           title: 'Offline AI Models',
           subtitle: 'llama.cpp GGUF • SmolLM2 & Qwen local inference',
           badge: 'GGUF',
-          icon: <HardDrive className="w-4 h-4 text-emerald-400" />
+          icon: <AppIconTile icon={HardDrive} color="slate" size="md" />
         },
         {
           id: 'skills' as SettingsSubScreen,
           title: 'Skills',
           subtitle: `${skills.filter(s => s.enabled).length} of ${skills.length} active`,
-          icon: <Wrench className="w-4 h-4 text-emerald-400" />
+          icon: <AppIconTile icon={Wrench} color="amber" size="md" />
         },
         {
           id: 'sub_agents' as SettingsSubScreen,
           title: 'Sub-agents',
           subtitle: `${subAgents.filter(a => a.enabled).length} active agents`,
-          icon: <Bot className="w-4 h-4 text-indigo-400" />
+          icon: <AppIconTile icon={Bot} color="pink" size="md" />
         }
       ]
     },
@@ -437,7 +438,7 @@ interface SettingCategorySection {
           title: 'Voice Guardian',
           subtitle: voiceGuardianConfig.enabled ? 'ACTIVE • Owner Only' : 'DISABLED',
           badge: voiceGuardianConfig.enabled ? 'SHIELD ON' : 'OFF',
-          icon: <ShieldCheck className="w-4 h-4 text-cyan-400" />
+          icon: <AppIconTile icon={ShieldCheck} color="cyan" size="md" />
         }
       ]
     },
@@ -449,14 +450,14 @@ interface SettingCategorySection {
           title: 'Linked Devices & Sync',
           subtitle: '4 connected • Pixel Watch, Tablet, MacBook relay',
           badge: 'MESH ON',
-          icon: <Smartphone className="w-4 h-4 text-cyan-400" />
+          icon: <AppIconTile icon={Smartphone} color="blue" size="md" />
         },
         {
           id: 'whiteboard' as SettingsSubScreen,
           title: 'Interactive Whiteboard',
           subtitle: 'Canvas drawing, wireframing & Vision AI analysis',
           badge: 'NEW',
-          icon: <PenTool className="w-4 h-4 text-purple-400" />
+          icon: <AppIconTile icon={PenTool} color="rose" size="md" />
         }
       ]
     },
@@ -467,7 +468,7 @@ interface SettingCategorySection {
           id: 'backup' as SettingsSubScreen,
           title: 'Backup & Storage',
           subtitle: `${memories.length} memories • Export / Reset`,
-          icon: <Database className="w-4 h-4 text-blue-400" />
+          icon: <AppIconTile icon={Database} color="blue" size="md" />
         }
       ]
     },
@@ -478,25 +479,25 @@ interface SettingCategorySection {
           id: 'advanced' as SettingsSubScreen,
           title: 'Advanced Settings',
           subtitle: 'Safety filters • Debug logs • Background tasks',
-          icon: <Cpu className="w-4 h-4 text-slate-400" />
+          icon: <AppIconTile icon={Cpu} color="slate" size="md" />
         },
         {
           id: 'optional_integrations' as SettingsSubScreen,
           title: 'Optional Integrations',
           subtitle: `${integrations.filter(i => i.status === 'configured').length} configured • Workspace, Maps, IoT`,
-          icon: <Boxes className="w-4 h-4 text-amber-400" />
+          icon: <AppIconTile icon={Boxes} color="orange" size="md" />
         },
         {
           id: 'privacy' as SettingsSubScreen,
           title: 'Privacy & Security',
           subtitle: 'Zero data sales • On-device biometric shield',
-          icon: <Lock className="w-4 h-4 text-rose-400" />
+          icon: <AppIconTile icon={Lock} color="rose" size="md" />
         },
         {
           id: 'about' as SettingsSubScreen,
           title: 'About MAYRA',
           subtitle: 'v2.4.0 • Android Jetpack Compose Architecture',
-          icon: <Info className="w-4 h-4 text-slate-400" />
+          icon: <AppIconTile icon={Info} color="slate" size="md" />
         }
       ]
     }
@@ -531,7 +532,7 @@ interface SettingCategorySection {
           </button>
 
           <div className="flex items-center gap-2">
-            <h1 className={`text-base font-bold font-sans tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            <h1 className={`text-base font-bold tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
               Settings
             </h1>
           </div>
@@ -555,7 +556,7 @@ interface SettingCategorySection {
             isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-100 border-slate-200 text-slate-800'
           }`}>
             <MayraLogo size={18} showGlow={false} />
-            <span className="text-[10px] font-mono font-bold tracking-wider">
+            <span className="text-[10px] font-bold tracking-wider">
               MAYRA
             </span>
           </div>
@@ -594,7 +595,7 @@ interface SettingCategorySection {
       <div className="flex-1 overflow-y-auto p-3 space-y-4 scrollbar-thin scrollbar-thumb-white/10">
         {filteredSections.map((section) => (
           <div key={section.category} className="space-y-1">
-            <h3 className={`text-[10px] font-mono font-bold tracking-widest px-2 uppercase ${
+            <h3 className={`text-[10px] font-bold tracking-widest px-2 uppercase ${
               isDark ? 'text-cyan-400' : 'text-cyan-600'
             }`}>
               {section.category}
@@ -614,14 +615,12 @@ interface SettingCategorySection {
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-xl transition-colors ${
-                      isDark ? 'bg-white/5 group-hover:bg-cyan-500/10' : 'bg-slate-100 group-hover:bg-cyan-50'
-                    }`}>
+                    <div className="shrink-0">
                       {item.icon}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className={`text-xs font-extrabold font-sans transition-colors ${
+                        <span className={`text-xs font-bold tracking-tight transition-colors ${
                           isDark ? 'text-white group-hover:text-cyan-300' : 'text-slate-900 group-hover:text-cyan-700'
                         }`}>
                           {item.title}

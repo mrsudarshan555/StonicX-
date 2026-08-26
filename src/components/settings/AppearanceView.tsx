@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { AppearanceConfig, OrbStyleType, OrbColorType } from '../../types';
+import { AppearanceConfig, OrbStyleType, OrbColorType, AppThemePreset, HeadingFontType, CameraAspectRatio } from '../../types';
 import { MayraOrb, ORB_STYLES, ORB_COLORS, normalizeOrbStyle } from '../character/MayraOrb';
+import { AppIconTile } from '../common/AppIconTile';
+import { APP_THEMES, getThemePreset } from '../../utils/themePresets';
 import { 
   ArrowLeft, Moon, Sun, Sparkles, 
-  Palette, Sliders, CheckCircle2, LayoutTemplate, X, Grid2X2, Compass
+  Palette, Sliders, CheckCircle2, LayoutTemplate, X, Grid2X2, Compass, Droplet, Type, Camera, Maximize2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -13,6 +15,77 @@ interface AppearanceViewProps {
   onBack: () => void;
   onNavigateToOrbStudio?: () => void;
 }
+
+const CAMERA_ASPECT_RATIO_OPTIONS: { id: CameraAspectRatio; name: string; subtitle: string; iconLabel: string }[] = [
+  {
+    id: '9:16',
+    name: '9:16 (Portrait)',
+    subtitle: 'Tall mobile view (Default)',
+    iconLabel: '9:16'
+  },
+  {
+    id: '3:4',
+    name: '3:4 (Classic Portrait)',
+    subtitle: 'Standard portrait camera format',
+    iconLabel: '3:4'
+  },
+  {
+    id: '1:1',
+    name: '1:1 (Square)',
+    subtitle: 'Balanced square scan frame',
+    iconLabel: '1:1'
+  },
+  {
+    id: '4:3',
+    name: '4:3 (Standard)',
+    subtitle: 'Wide compact preview frame',
+    iconLabel: '4:3'
+  },
+  {
+    id: 'full',
+    name: 'Full Screen',
+    subtitle: 'Expands across entire scanner card',
+    iconLabel: 'FULL'
+  }
+];
+
+const FONT_OPTIONS: { id: HeadingFontType; name: string; subtitle: string; previewClass: string; sample: string }[] = [
+  {
+    id: 'system',
+    name: 'System Default',
+    subtitle: 'Native Roboto / San Francisco Clean Font',
+    previewClass: 'font-system',
+    sample: 'MAYRA 2.0 • AI ASSISTANT'
+  },
+  {
+    id: 'orbitron',
+    name: 'Orbitron',
+    subtitle: 'Futuristic Cyberpunk Display Font',
+    previewClass: 'font-orbitron',
+    sample: 'MAYRA 2.0 • AI ASSISTANT'
+  },
+  {
+    id: 'sora',
+    name: 'Sora',
+    subtitle: 'Modern Geometric Tech Interface Font',
+    previewClass: 'font-sora',
+    sample: 'MAYRA 2.0 • AI ASSISTANT'
+  },
+  {
+    id: 'manrope',
+    name: 'Manrope',
+    subtitle: 'Contemporary Semi-rounded Grotesque',
+    previewClass: 'font-manrope',
+    sample: 'MAYRA 2.0 • AI ASSISTANT'
+  },
+  {
+    id: 'space_grotesk',
+    name: 'Space Grotesk',
+    subtitle: 'Cybernetic Tech Monospaced Proportions',
+    previewClass: 'font-space-grotesk',
+    sample: 'MAYRA 2.0 • AI ASSISTANT'
+  }
+];
 
 export const AppearanceView: React.FC<AppearanceViewProps> = ({
   config,
@@ -24,9 +97,17 @@ export const AppearanceView: React.FC<AppearanceViewProps> = ({
   const isDark = config.darkMode;
 
   const currentNormalizedStyle = normalizeOrbStyle(config.orbStyle);
+  const selectedThemeId: AppThemePreset = config.appTheme || 'cyan';
+  const currentTheme = getThemePreset(selectedThemeId);
+  const selectedFontId: HeadingFontType = config.headingFont || 'system';
+  const currentFontDef = FONT_OPTIONS.find(f => f.id === selectedFontId) || FONT_OPTIONS[0];
 
   const handleToggleDarkMode = () => {
     onChange({ darkMode: !config.darkMode });
+  };
+
+  const handleSelectTheme = (themeId: AppThemePreset) => {
+    onChange({ appTheme: themeId });
   };
 
   const handleSelectOrbStyle = (style: OrbStyleType) => {
@@ -46,6 +127,7 @@ export const AppearanceView: React.FC<AppearanceViewProps> = ({
   };
 
   const colorEntries = Object.values(ORB_COLORS);
+  const themeEntries = Object.values(APP_THEMES);
 
   // Show top 5 styles on main page + 6th slot is "More styles" card
   const primaryStyles = ORB_STYLES.slice(0, 5);
@@ -70,9 +152,9 @@ export const AppearanceView: React.FC<AppearanceViewProps> = ({
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <div className="flex items-center gap-2">
-            <Palette className="w-5 h-5 text-purple-400" />
-            <h1 className={`font-sans font-extrabold text-sm tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+          <div className="flex items-center gap-2.5">
+            <AppIconTile icon={Palette} color="purple" size="sm" />
+            <h1 className={`font-bold text-sm tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
               Appearance & Display
             </h1>
           </div>
@@ -81,13 +163,13 @@ export const AppearanceView: React.FC<AppearanceViewProps> = ({
         {onNavigateToOrbStudio && (
           <button
             onClick={onNavigateToOrbStudio}
-            className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1 ${
+            className={`text-[11px] font-bold px-2.5 py-1.5 rounded-xl border transition-all flex items-center gap-1.5 ${
               isDark 
-                ? 'bg-cyan-950/50 border-cyan-500/40 text-cyan-300 hover:bg-cyan-900/60 shadow-[0_0_10px_rgba(6,182,212,0.2)]' 
+                ? 'bg-cyan-950/60 border-cyan-500/40 text-cyan-300 hover:bg-cyan-900/60 shadow-[0_0_12px_rgba(6,182,212,0.25)]' 
                 : 'bg-cyan-50 border-cyan-300 text-cyan-700 hover:bg-cyan-100'
             }`}
           >
-            <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+            <Sparkles className="w-3.5 h-3.5 text-cyan-400 fill-cyan-400" />
             <span>Orb Studio</span>
           </button>
         )}
@@ -96,7 +178,86 @@ export const AppearanceView: React.FC<AppearanceViewProps> = ({
       {/* Settings Scroll Content */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6 scrollbar-none">
 
-        {/* FEATURED: ORB CUSTOMIZATION STUDIO PROMOTION CARD */}
+        {/* 1. APP THEME PRESET PICKER */}
+        <section className="space-y-2.5">
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-2">
+              <AppIconTile icon={Droplet} color="theme" size="xs" themePreset={selectedThemeId} />
+              <div>
+                <h2 className={`font-bold text-[10px] uppercase tracking-widest ${isDark ? 'text-cyan-400' : 'text-cyan-600'}`}>
+                  APP ACCENT THEME
+                </h2>
+                <p className={`text-[10px] font-normal ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                  Recolor interface accents, icon tiles, and highlights app-wide
+                </p>
+              </div>
+            </div>
+            <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold border ${currentTheme.activeBg} ${currentTheme.activeText} ${currentTheme.activeBorder}`}>
+              {currentTheme.name}
+            </span>
+          </div>
+
+          {/* Theme Preset Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {themeEntries.map((themeItem) => {
+              const isSelected = selectedThemeId === themeItem.id;
+              return (
+                <button
+                  key={themeItem.id}
+                  onClick={() => handleSelectTheme(themeItem.id)}
+                  className={`p-3.5 rounded-2xl border flex items-center justify-between relative transition-all active:scale-[0.99] text-left ${
+                    isSelected
+                      ? isDark
+                        ? `bg-[#10162E] ${themeItem.activeBorder} ${themeItem.glowShadow} ring-1 ${themeItem.ringColor}`
+                        : 'bg-slate-50 border-cyan-500 shadow-md ring-2 ring-cyan-400/30'
+                      : isDark
+                        ? 'bg-[#0C1021] border-white/10 hover:border-white/20'
+                        : 'bg-white border-slate-200 hover:border-slate-300 shadow-sm'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    {/* Swatches Stack */}
+                    <div className="flex -space-x-1.5 shrink-0">
+                      {themeItem.previewSwatches.map((colorHex, idx) => (
+                        <div
+                          key={idx}
+                          className="w-5 h-5 rounded-full border-2 border-white/20 shadow-sm shrink-0"
+                          style={{ backgroundColor: colorHex }}
+                        />
+                      ))}
+                    </div>
+
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className={`font-bold text-xs ${
+                          isSelected ? (isDark ? 'text-white' : 'text-slate-900') : (isDark ? 'text-slate-200' : 'text-slate-800')
+                        }`}>
+                          {themeItem.name}
+                        </span>
+                        {themeItem.id === 'cyan' && (
+                          <span className="text-[8px] font-mono font-bold px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">
+                            DEFAULT
+                          </span>
+                        )}
+                      </div>
+                      <p className={`text-[10px] font-normal mt-0.5 line-clamp-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                        {themeItem.subtitle}
+                      </p>
+                    </div>
+                  </div>
+
+                  {isSelected && (
+                    <div className={themeItem.activeText}>
+                      <CheckCircle2 className="w-5 h-5 fill-current" />
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* 2. FEATURED: ORB CUSTOMIZATION STUDIO PROMOTION CARD */}
         {onNavigateToOrbStudio && (
           <div 
             onClick={onNavigateToOrbStudio}
@@ -108,7 +269,7 @@ export const AppearanceView: React.FC<AppearanceViewProps> = ({
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3.5">
-                <div className="w-12 h-12 rounded-xl bg-cyan-500/15 border border-cyan-400/30 flex items-center justify-center shrink-0">
+                <div className="w-12 h-12 rounded-2xl bg-cyan-500/15 border border-cyan-400/30 flex items-center justify-center shrink-0">
                   <MayraOrb
                     style={config.orbStyle}
                     color={config.orbColor}
@@ -120,11 +281,11 @@ export const AppearanceView: React.FC<AppearanceViewProps> = ({
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className={`font-extrabold text-sm tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                    <h3 className={`font-bold text-sm tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
                       Orb Customization Studio
                     </h3>
                     <span className="px-1.5 py-0.2 rounded text-[8px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">
-                      NEW
+                      STUDIO
                     </span>
                   </div>
                   <p className={`text-xs font-normal mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -132,14 +293,12 @@ export const AppearanceView: React.FC<AppearanceViewProps> = ({
                   </p>
                 </div>
               </div>
-              <div className="p-2 rounded-xl bg-cyan-500/15 text-cyan-400 border border-cyan-400/30">
-                <Sparkles className="w-4 h-4" />
-              </div>
+              <AppIconTile icon={Sparkles} color="cyan" size="sm" glow={true} />
             </div>
           </div>
         )}
 
-        {/* 1. DARK MODE CARD */}
+        {/* 3. DARK MODE CARD */}
         <section className={`p-4 rounded-2xl border transition-all ${
           isDark 
             ? 'bg-[#0C1021] border-white/10 shadow-lg' 
@@ -147,16 +306,14 @@ export const AppearanceView: React.FC<AppearanceViewProps> = ({
         }`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3.5">
-              <div className={`p-2.5 rounded-xl border ${
-                isDark 
-                  ? 'bg-purple-500/15 border-purple-400/30 text-purple-300' 
-                  : 'bg-amber-500/15 border-amber-400/30 text-amber-600'
-              }`}>
-                {isDark ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
-              </div>
+              <AppIconTile 
+                icon={isDark ? Moon : Sun} 
+                color={isDark ? 'purple' : 'amber'} 
+                size="md" 
+              />
               <div>
                 <div className="flex items-center gap-2">
-                  <span className={`font-extrabold text-sm ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                  <span className={`font-bold text-sm ${isDark ? 'text-white' : 'text-slate-900'}`}>
                     Dark Mode
                   </span>
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
@@ -188,7 +345,91 @@ export const AppearanceView: React.FC<AppearanceViewProps> = ({
           </div>
         </section>
 
-        {/* 2. ORB STYLE PICKER */}
+        {/* 4. TEXT STYLE (HEADING FONT) PICKER */}
+        <section className="space-y-2.5">
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-2">
+              <AppIconTile icon={Type} color="blue" size="xs" />
+              <div>
+                <h2 className={`font-bold text-[10px] uppercase tracking-widest ${isDark ? 'text-cyan-400' : 'text-cyan-600'}`}>
+                  TEXT STYLE (HEADING FONT)
+                </h2>
+                <p className={`text-[10px] font-normal ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                  Choose the typography style applied to headers and display titles
+                </p>
+              </div>
+            </div>
+            <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold border ${
+              isDark ? 'bg-cyan-500/15 text-cyan-300 border-cyan-400/30' : 'bg-cyan-50 text-cyan-700 border-cyan-300'
+            }`}>
+              {currentFontDef.name}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 gap-2">
+            {FONT_OPTIONS.map((fontItem) => {
+              const isSelected = selectedFontId === fontItem.id;
+              return (
+                <button
+                  key={fontItem.id}
+                  onClick={() => onChange({ headingFont: fontItem.id })}
+                  className={`w-full p-3 rounded-2xl border flex items-center justify-between relative transition-all active:scale-[0.99] text-left ${
+                    isSelected
+                      ? isDark
+                        ? 'bg-[#10162E] border-cyan-500/60 shadow-[0_0_16px_rgba(6,182,212,0.18)] ring-1 ring-cyan-400/40'
+                        : 'bg-cyan-50/60 border-cyan-500 shadow-sm ring-2 ring-cyan-400/30'
+                      : isDark
+                        ? 'bg-[#0C1021] border-white/10 hover:border-white/20'
+                        : 'bg-white border-slate-200 hover:border-slate-300 shadow-sm'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 border ${
+                      isSelected
+                        ? 'bg-cyan-500/20 border-cyan-400/40 text-cyan-300'
+                        : isDark
+                        ? 'bg-slate-800/60 border-white/10 text-slate-400'
+                        : 'bg-slate-100 border-slate-200 text-slate-600'
+                    }`}>
+                      <span className={fontItem.previewClass}>Aa</span>
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className={`font-bold text-xs ${
+                          isSelected ? (isDark ? 'text-white' : 'text-slate-900') : (isDark ? 'text-slate-200' : 'text-slate-800')
+                        }`}>
+                          {fontItem.name}
+                        </span>
+                        {fontItem.id === 'system' && (
+                          <span className="text-[8px] font-mono font-bold px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">
+                            DEFAULT
+                          </span>
+                        )}
+                      </div>
+                      <p className={`text-[10px] font-normal mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                        {fontItem.subtitle}
+                      </p>
+                      <p className={`text-[11px] font-bold mt-1 tracking-wider ${fontItem.previewClass} ${
+                        isSelected ? 'text-cyan-400' : isDark ? 'text-slate-300' : 'text-slate-700'
+                      }`}>
+                        {fontItem.sample}
+                      </p>
+                    </div>
+                  </div>
+
+                  {isSelected && (
+                    <div className="text-cyan-400 ml-2 shrink-0">
+                      <CheckCircle2 className="w-5 h-5 fill-current" />
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* 5. ORB STYLE PICKER */}
         <section className="space-y-2.5">
           <div className="flex items-center justify-between px-1">
             <div>
@@ -247,7 +488,7 @@ export const AppearanceView: React.FC<AppearanceViewProps> = ({
 
                   {/* Title & Short Description */}
                   <div className="text-center w-full">
-                    <p className={`font-extrabold text-xs truncate ${
+                    <p className={`font-bold text-xs truncate ${
                       isSelected 
                         ? isDark ? 'text-cyan-300' : 'text-cyan-700' 
                         : isDark ? 'text-white' : 'text-slate-800'
@@ -277,7 +518,7 @@ export const AppearanceView: React.FC<AppearanceViewProps> = ({
                 <Grid2X2 className="w-7 h-7 text-purple-400 group-hover:text-purple-300 transition-colors" />
               </div>
               <div className="text-center w-full">
-                <p className={`font-extrabold text-xs ${isDark ? 'text-purple-300' : 'text-purple-700'}`}>
+                <p className={`font-bold text-xs ${isDark ? 'text-purple-300' : 'text-purple-700'}`}>
                   More styles (+10)
                 </p>
                 <p className={`text-[10px] font-normal mt-0.5 leading-tight ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -288,7 +529,7 @@ export const AppearanceView: React.FC<AppearanceViewProps> = ({
           </div>
         </section>
 
-        {/* 3. COLOUR SWATCHES (Default Multi-Color Gradient Spectrum + Flat Colors) */}
+        {/* 5. COLOUR SWATCHES */}
         <section className="space-y-2.5">
           <div className="flex items-center justify-between px-1">
             <div>
@@ -340,7 +581,7 @@ export const AppearanceView: React.FC<AppearanceViewProps> = ({
                   </div>
                   <span className={`text-[9px] font-mono truncate max-w-[52px] text-center ${
                     isSelected 
-                      ? isDark ? 'text-white font-extrabold' : 'text-slate-900 font-extrabold'
+                      ? isDark ? 'text-white font-bold' : 'text-slate-900 font-bold'
                       : isDark ? 'text-slate-400 font-normal' : 'text-slate-500 font-normal'
                   }`}>
                     {colorItem.name.split(' ')[0]}
@@ -351,15 +592,15 @@ export const AppearanceView: React.FC<AppearanceViewProps> = ({
           </div>
         </section>
 
-        {/* 4. FLOATING ORB SIZE SLIDER */}
+        {/* 6. FLOATING ORB SIZE SLIDER */}
         <section className={`p-4 rounded-2xl border space-y-3.5 ${
           isDark ? 'bg-[#0C1021] border-white/10 shadow-lg' : 'bg-white border-slate-200 shadow-sm'
         }`}>
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Sliders className="w-4 h-4 text-cyan-400" />
+            <div className="flex items-center gap-2.5">
+              <AppIconTile icon={Sliders} color="cyan" size="xs" />
               <div>
-                <span className={`font-extrabold text-xs uppercase tracking-wider ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                <span className={`font-bold text-xs uppercase tracking-wider ${isDark ? 'text-white' : 'text-slate-900'}`}>
                   Floating orb size
                 </span>
                 <p className={`text-[10px] font-normal ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -410,17 +651,15 @@ export const AppearanceView: React.FC<AppearanceViewProps> = ({
           </div>
         </section>
 
-        {/* 5. USE ORB ON HOME TOGGLE */}
+        {/* 7. USE ORB ON HOME TOGGLE */}
         <section className={`p-4 rounded-2xl border transition-all ${
           isDark ? 'bg-[#0C1021] border-white/10 shadow-lg' : 'bg-white border-slate-200 shadow-sm'
         }`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3.5">
-              <div className="p-2.5 rounded-xl bg-cyan-500/15 border border-cyan-400/30 text-cyan-400">
-                <LayoutTemplate className="w-5 h-5" />
-              </div>
+              <AppIconTile icon={LayoutTemplate} color="blue" size="md" />
               <div className="max-w-[210px] sm:max-w-xs">
-                <span className={`font-extrabold text-sm ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                <span className={`font-bold text-sm ${isDark ? 'text-white' : 'text-slate-900'}`}>
                   Use the orb on Home
                 </span>
                 <p className={`text-xs font-normal mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -446,6 +685,62 @@ export const AppearanceView: React.FC<AppearanceViewProps> = ({
           </div>
         </section>
 
+        {/* 8. VISION SCANNER CAMERA ASPECT RATIO */}
+        <section className={`p-4 rounded-2xl border space-y-3.5 ${
+          isDark ? 'bg-[#0C1021] border-white/10 shadow-lg' : 'bg-white border-slate-200 shadow-sm'
+        }`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <AppIconTile icon={Camera} color="cyan" size="xs" />
+              <div>
+                <span className={`font-bold text-xs uppercase tracking-wider ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                  Vision Scanner Aspect Ratio
+                </span>
+                <p className={`text-[10px] font-normal ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                  Configure camera viewfinder and scan area dimensions
+                </p>
+              </div>
+            </div>
+            <div className="px-2.5 py-1 rounded-xl bg-cyan-500/15 border border-cyan-400/30 text-cyan-400 font-mono text-xs font-bold">
+              {config.cameraAspectRatio || '9:16'}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {CAMERA_ASPECT_RATIO_OPTIONS.map((ratioOpt) => {
+              const isSelected = (config.cameraAspectRatio || '9:16') === ratioOpt.id;
+              return (
+                <button
+                  key={ratioOpt.id}
+                  onClick={() => onChange({ cameraAspectRatio: ratioOpt.id })}
+                  className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all duration-200 ${
+                    isSelected
+                      ? 'bg-cyan-500/15 border-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.25)] ring-1 ring-cyan-400/50'
+                      : isDark
+                      ? 'bg-[#070914] border-white/5 hover:border-white/15 text-slate-300'
+                      : 'bg-slate-50 border-slate-200 hover:border-slate-300 text-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="font-mono text-xs font-bold text-cyan-400 px-1.5 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20">
+                      {ratioOpt.iconLabel}
+                    </span>
+                    {isSelected && (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400" />
+                    )}
+                  </div>
+                  <span className={`text-xs font-semibold ${isSelected ? (isDark ? 'text-white' : 'text-slate-900') : (isDark ? 'text-slate-200' : 'text-slate-800')}`}>
+                    {ratioOpt.name}
+                  </span>
+                  <span className={`text-[9px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    {ratioOpt.subtitle}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
       </div>
 
       {/* ALL 15 ORB STYLES MODAL SHEET / DIALOG */}
@@ -466,11 +761,9 @@ export const AppearanceView: React.FC<AppearanceViewProps> = ({
                 isDark ? 'bg-[#0E142C] border-white/10' : 'bg-slate-50 border-slate-200'
               }`}>
                 <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-xl bg-purple-500/20 text-purple-400 border border-purple-400/30">
-                    <Sparkles className="w-5 h-5" />
-                  </div>
+                  <AppIconTile icon={Sparkles} color="purple" size="sm" />
                   <div>
-                    <h3 className="font-sans font-bold text-base">
+                    <h3 className="font-bold text-base">
                       Orb Styles Collection
                     </h3>
                     <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -520,6 +813,8 @@ export const AppearanceView: React.FC<AppearanceViewProps> = ({
                         <MayraOrb
                           style={styleItem.id}
                           color={config.orbColor}
+                          orbType={config.orbType}
+                          customHue={config.customHue}
                           size={58}
                           status="READY"
                         />
@@ -527,7 +822,7 @@ export const AppearanceView: React.FC<AppearanceViewProps> = ({
 
                       {/* Info */}
                       <div className="text-center w-full">
-                        <p className={`font-sans font-bold text-xs truncate ${
+                        <p className={`font-bold text-xs truncate ${
                           isSelected 
                             ? isDark ? 'text-cyan-300' : 'text-cyan-700' 
                             : isDark ? 'text-white' : 'text-slate-800'
@@ -554,7 +849,7 @@ export const AppearanceView: React.FC<AppearanceViewProps> = ({
                 </span>
                 <button
                   onClick={() => setIsMoreStylesOpen(false)}
-                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 text-white font-sans font-bold text-xs shadow-lg transition-all active:scale-95"
+                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 text-white font-bold text-xs shadow-lg transition-all active:scale-95"
                 >
                   Done
                 </button>

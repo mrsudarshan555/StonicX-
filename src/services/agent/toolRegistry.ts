@@ -423,6 +423,9 @@ export class AgentToolRegistry {
   }
 
   public static getTool(name: string): ToolDefinition | undefined {
+    if (name === 'read_recent_notifications' || name === 'read_notifications') {
+      return this.tools.get('read_recent_notifications') || this.tools.get('read_notification');
+    }
     return this.tools.get(name);
   }
 
@@ -446,7 +449,7 @@ export class AgentToolRegistry {
     args: Record<string, any>,
     userConfirmed: boolean = false
   ): Promise<{ success: boolean; result?: any; error?: string; requiresConfirmation?: boolean; confirmationDetails?: AgentPendingConfirmation }> {
-    const tool = this.tools.get(toolName);
+    const tool = this.getTool(toolName);
     if (!tool) {
       return {
         success: false,
@@ -459,6 +462,19 @@ export class AgentToolRegistry {
         success: false,
         error: `Tool "${toolName}" is blocked by system security policy.`
       };
+    }
+
+    // Schema Validation: Check required parameters
+    if (tool.parameters?.required && Array.isArray(tool.parameters.required)) {
+      for (const reqParam of tool.parameters.required) {
+        const val = args?.[reqParam];
+        if (val === undefined || val === null || (typeof val === 'string' && val.trim() === '')) {
+          return {
+            success: false,
+            error: `Validation error: Missing required argument "${reqParam}" for tool "${toolName}".`
+          };
+        }
+      }
     }
 
     // Permission gate check

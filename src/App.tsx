@@ -6,6 +6,25 @@ import { useMayraPermissions } from './hooks/useMayraPermissions';
 import { useMayraSettings } from './hooks/useMayraSettings';
 
 export default function App() {
+  // Initial App Startup / Splash screen state
+  const [isSplashVisible, setIsSplashVisible] = useState(true);
+  const [splashFading, setSplashFading] = useState(false);
+
+  useEffect(() => {
+    const timer1 = setTimeout(() => {
+      setSplashFading(true);
+    }, 1100);
+
+    const timer2 = setTimeout(() => {
+      setIsSplashVisible(false);
+    }, 1550);
+
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+    };
+  }, []);
+
   // Phone internal navigation state
   const [activePhoneTab, setActivePhoneTab] = useState<ActiveTab>('home');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -32,14 +51,27 @@ export default function App() {
     setMemories
   } = useMayraSettings();
 
-  // Sync dark class on document element
+  // Sync dark class and heading font on document element
   useEffect(() => {
     if (appearanceConfig.darkMode) {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
-  }, [appearanceConfig.darkMode]);
+
+    const font = appearanceConfig.headingFont || 'system';
+    let fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+    if (font === 'orbitron') {
+      fontFamily = "'Orbitron', -apple-system, BlinkMacSystemFont, sans-serif";
+    } else if (font === 'sora') {
+      fontFamily = "'Sora', -apple-system, BlinkMacSystemFont, sans-serif";
+    } else if (font === 'manrope') {
+      fontFamily = "'Manrope', -apple-system, BlinkMacSystemFont, sans-serif";
+    } else if (font === 'space_grotesk') {
+      fontFamily = "'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif";
+    }
+    document.documentElement.style.setProperty('--font-heading', fontFamily);
+  }, [appearanceConfig.darkMode, appearanceConfig.headingFont]);
 
   // Decoupled permissions management (14 permissions)
   const {
@@ -276,6 +308,29 @@ export default function App() {
         messages={messages}
         setMessages={setMessages}
       />
+
+      {/* 1. APP STARTUP / SPLASH SCREEN (Centered Complete MAYRA Logo, No Text, No Cropping) */}
+      {isSplashVisible && (
+        <div 
+          className={`fixed inset-0 z-[9999] flex items-center justify-center bg-[#070914] pointer-events-none transition-opacity duration-500 ease-out ${
+            splashFading ? 'opacity-0' : 'opacity-100'
+          }`}
+        >
+          <div className="flex items-center justify-center p-4">
+            <img
+              src="/ic_launcher_foreground.png"
+              alt="MAYRA Startup Logo"
+              className="w-32 h-32 md:w-36 md:h-36 max-w-full max-h-full object-contain pointer-events-none select-none drop-shadow-[0_0_35px_rgba(6,182,212,0.45)]"
+              draggable={false}
+              onError={(e) => {
+                if (e.currentTarget.src !== '/mayra_logo.png') {
+                  e.currentTarget.src = '/mayra_logo.png';
+                }
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

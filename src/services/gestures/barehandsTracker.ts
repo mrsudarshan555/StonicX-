@@ -138,6 +138,11 @@ export class BarehandsTracker {
 
     // 1. Request Camera Permission ONLY when explicitly enabled
     try {
+      if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.warn('[Barehands] getUserMedia is not supported in this environment/iframe context.');
+        return { success: false, error: 'Camera API is not supported in this browser or iframe context.' };
+      }
+
       console.log('[Barehands] Requesting camera stream with mobile-optimized constraints...');
       const constraints: MediaStreamConstraints = {
         audio: false,
@@ -156,7 +161,7 @@ export class BarehandsTracker {
         this.videoElement.srcObject = stream;
         this.videoElement.playsInline = true;
         this.videoElement.muted = true;
-        await this.videoElement.play();
+        await this.videoElement.play().catch(() => {});
       }
 
       // 2. Initialize Model if not ready
@@ -179,11 +184,11 @@ export class BarehandsTracker {
       console.log('[Barehands] Hand Tracking started successfully.');
       return { success: true };
     } catch (err: any) {
-      console.error('[Barehands] Failed to acquire camera stream:', err);
+      console.warn('[Barehands] Camera stream acquisition skipped or denied:', err?.name || err?.message || err);
       let errMsg = 'Camera access was denied or is unavailable.';
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        errMsg = 'Camera permission denied by user.';
-      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+      if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
+        errMsg = 'Camera permission denied by user or iframe policy.';
+      } else if (err?.name === 'NotFoundError' || err?.name === 'DevicesNotFoundError') {
         errMsg = 'No front camera found on this device.';
       }
       return { success: false, error: errMsg };

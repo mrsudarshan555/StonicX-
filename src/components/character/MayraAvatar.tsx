@@ -371,17 +371,16 @@ export const MayraAvatar: React.FC<MayraAvatarProps> = ({
       const scaleFactor = (actualHeight > 0.001 ? (TARGET_HEIGHT / actualHeight) : 1.0) * effectiveZoom;
       scene.scale.setScalar(scaleFactor);
 
-      // Align chest/tie level directly to origin (Y=0) and center on X & Z for bust-up portrait
-      // Position character downward so top header, Settings button, and logo have clear breathing space above
-      const chestY = box.max.y - actualHeight * 0.225;
+      // Align chest/collar level directly to origin so chest-up (bust) portrait is framed cleanly
+      const chestY = box.max.y - (actualHeight * 0.24);
       scene.position.x = -center.x * scaleFactor;
       scene.position.y = -chestY * scaleFactor;
       scene.position.z = -center.z * scaleFactor;
       scene.rotation.set(0, 0, 0);
 
-      // 3. CAMERA CALIBRATION (Bust-up portrait framing: FOV 30, distance 2.25)
-      const CAMERA_DISTANCE = 2.25;
-      const fov = 30;
+      // 3. CAMERA CALIBRATION
+      const CAMERA_DISTANCE = 1.75;
+      const fov = 40;
 
       setCameraConfig({
         position: [0, 0, CAMERA_DISTANCE],
@@ -389,12 +388,13 @@ export const MayraAvatar: React.FC<MayraAvatarProps> = ({
         fov
       });
 
-      console.log('[MayraAvatar] Mobile Portrait Camera & Positioning Calibrated:', {
+      console.log('[MayraAvatar] Mobile Bust-Up Portrait Camera & Scale Calibrated:', {
         cameraPosition: [0, 0, CAMERA_DISTANCE],
         cameraTarget: [0, 0, 0],
         fov,
         modelPosition: [scene.position.x, scene.position.y, scene.position.z],
-        scaleFactor
+        scaleFactor,
+        targetHeight: TARGET_HEIGHT
       });
 
       scene.traverse((child) => {

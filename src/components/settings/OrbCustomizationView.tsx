@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { AppearanceConfig, OrbStyleType, OrbColorType, OrbTypePreset, AppLauncherIconVariant, AssistantStatus } from '../../types';
 import { MayraOrb, ORB_STYLES, ORB_COLORS, normalizeOrbStyle } from '../character/MayraOrb';
 import { LAUNCHER_ICONS, MayraLogo } from '../common/MayraLogo';
+import { AppIconTile } from '../common/AppIconTile';
 import { 
   ArrowLeft, Sparkles, Sliders, 
   Palette, Radio, Eye, Volume2, ShieldCheck, 
-  RotateCcw, CheckCircle2, Zap, Sun, Orbit, Layers, Flame
+  RotateCcw, CheckCircle2, Zap, Sun, Orbit, Layers, Flame, LucideIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -61,30 +62,34 @@ export const OrbCustomizationView: React.FC<OrbCustomizationViewProps> = ({
     onChange({ launcherIconVariant: variant });
   };
 
-  const orbTypesList: { id: OrbTypePreset; label: string; desc: string; icon: React.ReactNode }[] = [
+  const orbTypesList: { id: OrbTypePreset; label: string; desc: string; icon: LucideIcon; color: 'cyan' | 'amber' | 'pink' | 'purple' }[] = [
     { 
       id: 'classic', 
       label: 'Classic', 
       desc: 'Pure harmonic geometry & natural core radiance',
-      icon: <Orbit className="w-4 h-4 text-cyan-400" />
+      icon: Orbit,
+      color: 'cyan'
     },
     { 
       id: 'energy', 
       label: 'Energy', 
       desc: 'Coronal plasma flares & high-velocity particle spikes',
-      icon: <Zap className="w-4 h-4 text-amber-400" />
+      icon: Zap,
+      color: 'amber'
     },
     { 
       id: 'neon', 
       label: 'Neon', 
       desc: 'High-luminescence electric halo & chromatic boundary ring',
-      icon: <Flame className="w-4 h-4 text-pink-400" />
+      icon: Flame,
+      color: 'pink'
     },
     { 
       id: 'hologram', 
       label: 'Hologram', 
       desc: 'Tactical HUD scanlines, telemetry ticks & digital matrix',
-      icon: <Layers className="w-4 h-4 text-purple-400" />
+      icon: Layers,
+      color: 'purple'
     }
   ];
 
@@ -107,12 +112,10 @@ export const OrbCustomizationView: React.FC<OrbCustomizationViewProps> = ({
           >
             <ArrowLeft className={`w-5 h-5 ${isDark ? 'text-white' : 'text-slate-800'}`} />
           </button>
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-cyan-500/15 border border-cyan-400/30 text-cyan-400">
-              <Sparkles className="w-4 h-4" />
-            </div>
+          <div className="flex items-center gap-2.5">
+            <AppIconTile icon={Sparkles} color="cyan" size="sm" />
             <div>
-              <h1 className={`font-sans font-extrabold text-sm tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+              <h1 className={`font-bold text-sm tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
                 Orb Customization Studio
               </h1>
               <p className={`text-[10px] font-normal ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -160,7 +163,7 @@ export const OrbCustomizationView: React.FC<OrbCustomizationViewProps> = ({
             <div className="w-full flex items-center justify-between mb-2">
               <div className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-cyan-300">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-300">
                   LIVE REAL-TIME ENGINE PREVIEW
                 </span>
               </div>
@@ -243,16 +246,10 @@ export const OrbCustomizationView: React.FC<OrbCustomizationViewProps> = ({
                 >
                   <div className="flex items-center justify-between w-full mb-1">
                     <div className="flex items-center gap-2">
-                      <div className={`p-1.5 rounded-lg ${
+                      <AppIconTile icon={type.icon} color={type.color} size="xs" />
+                      <span className={`font-bold text-xs tracking-tight ${
                         isSelected 
-                          ? isDark ? 'bg-cyan-500/20 text-cyan-300' : 'bg-cyan-500 text-white' 
-                          : isDark ? 'bg-white/5 text-slate-300' : 'bg-slate-100 text-slate-700'
-                      }`}>
-                        {type.icon}
-                      </div>
-                      <span className={`font-extrabold text-xs tracking-tight ${
-                        isSelected 
-                          ? isDark ? 'text-white font-black' : 'text-cyan-950 font-black'
+                          ? isDark ? 'text-white' : 'text-cyan-950'
                           : isDark ? 'text-white' : 'text-slate-900'
                       }`}>
                         {type.label}
@@ -281,11 +278,7 @@ export const OrbCustomizationView: React.FC<OrbCustomizationViewProps> = ({
         }`}>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2.5">
-              <div className={`p-2 rounded-xl border ${
-                isDark ? 'bg-blue-500/15 border-blue-400/30 text-blue-300' : 'bg-blue-50 border-blue-200 text-blue-600'
-              }`}>
-                <Sliders className="w-4 h-4" />
-              </div>
+              <AppIconTile icon={Sliders} color="blue" size="xs" />
               <div>
                 <h4 className={`font-bold text-xs ${isDark ? 'text-white' : 'text-slate-900'}`}>
                   Adjust Orb Size
@@ -327,11 +320,7 @@ export const OrbCustomizationView: React.FC<OrbCustomizationViewProps> = ({
         }`}>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2.5">
-              <div className={`p-2 rounded-xl border ${
-                isDark ? 'bg-pink-500/15 border-pink-400/30 text-pink-300' : 'bg-pink-50 border-pink-200 text-pink-600'
-              }`}>
-                <Palette className="w-4 h-4" />
-              </div>
+              <AppIconTile icon={Palette} color="pink" size="xs" />
               <div>
                 <div className="flex items-center gap-2">
                   <h4 className={`font-bold text-xs ${isDark ? 'text-white' : 'text-slate-900'}`}>
@@ -426,11 +415,7 @@ export const OrbCustomizationView: React.FC<OrbCustomizationViewProps> = ({
             {/* (e) Voice Visualizer Toggle */}
             <div className="p-3.5 flex items-center justify-between">
               <div className="flex items-center gap-3 pr-2">
-                <div className={`p-2 rounded-xl ${
-                  isDark ? 'bg-cyan-500/15 text-cyan-300' : 'bg-cyan-50 text-cyan-600'
-                }`}>
-                  <Volume2 className="w-4 h-4" />
-                </div>
+                <AppIconTile icon={Volume2} color="cyan" size="xs" />
                 <div>
                   <div className="flex items-center gap-2">
                     <span className={`font-bold text-xs ${isDark ? 'text-white' : 'text-slate-900'}`}>
@@ -465,11 +450,7 @@ export const OrbCustomizationView: React.FC<OrbCustomizationViewProps> = ({
             {/* (f) Aura Border Mode Toggle */}
             <div className="p-3.5 flex items-center justify-between">
               <div className="flex items-center gap-3 pr-2">
-                <div className={`p-2 rounded-xl ${
-                  isDark ? 'bg-purple-500/15 text-purple-300' : 'bg-purple-50 text-purple-600'
-                }`}>
-                  <ShieldCheck className="w-4 h-4" />
-                </div>
+                <AppIconTile icon={ShieldCheck} color="purple" size="xs" />
                 <div>
                   <div className="flex items-center gap-2">
                     <span className={`font-bold text-xs ${isDark ? 'text-white' : 'text-slate-900'}`}>

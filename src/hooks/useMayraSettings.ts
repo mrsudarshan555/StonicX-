@@ -25,6 +25,9 @@ const CUSTOM_HUE_STORAGE_KEY = 'mayra_custom_hue';
 const VOICE_VISUALIZER_STORAGE_KEY = 'mayra_voice_visualizer';
 const AURA_BORDER_STORAGE_KEY = 'mayra_aura_border';
 const LAUNCHER_ICON_STORAGE_KEY = 'mayra_launcher_icon';
+const APP_THEME_STORAGE_KEY = 'mayra_app_theme';
+const HEADING_FONT_STORAGE_KEY = 'mayra_heading_font';
+const CAMERA_ASPECT_RATIO_STORAGE_KEY = 'mayra_camera_aspect_ratio';
 
 function getInitialDarkMode(): boolean {
   if (typeof window === 'undefined') return true;
@@ -33,6 +36,17 @@ function getInitialDarkMode(): boolean {
     if (saved !== null) return saved === 'true';
   } catch (e) {}
   return true; // Default Dark Mode
+}
+
+function getInitialHeadingFont(): 'system' | 'orbitron' | 'sora' | 'manrope' | 'space_grotesk' {
+  if (typeof window === 'undefined') return 'system';
+  try {
+    const saved = localStorage.getItem(HEADING_FONT_STORAGE_KEY);
+    if (saved === 'system' || saved === 'orbitron' || saved === 'sora' || saved === 'manrope' || saved === 'space_grotesk') {
+      return saved;
+    }
+  } catch (e) {}
+  return 'system';
 }
 
 function getInitialOrbType(): 'classic' | 'energy' | 'neon' | 'hologram' {
@@ -83,8 +97,27 @@ function getInitialLauncherIcon(): 'cyan_default' | 'amber_gold' | 'violet_cosmi
   return 'cyan_default';
 }
 
+function getInitialAppTheme(): 'cyan' | 'aura_red' | 'purple' | 'emerald' | 'midnight' {
+  if (typeof window === 'undefined') return 'cyan';
+  try {
+    const saved = localStorage.getItem(APP_THEME_STORAGE_KEY);
+    if (saved === 'cyan' || saved === 'aura_red' || saved === 'purple' || saved === 'emerald' || saved === 'midnight') return saved;
+  } catch (e) {}
+  return 'cyan';
+}
+
+function getInitialCameraAspectRatio(): '9:16' | '3:4' | '1:1' | '4:3' | 'full' {
+  if (typeof window === 'undefined') return '9:16';
+  try {
+    const saved = localStorage.getItem(CAMERA_ASPECT_RATIO_STORAGE_KEY);
+    if (saved === '9:16' || saved === '3:4' || saved === '1:1' || saved === '4:3' || saved === 'full') return saved;
+  } catch (e) {}
+  return '9:16'; // Default 9:16 (Portrait Full View)
+}
+
 const VALID_ORB_STYLES: OrbStyleType[] = [
   'particle_swirl',
+  'galaxy_swirl',
   'pulse_reactor',
   'particle_swarm',
   'liquid_core',
@@ -240,7 +273,10 @@ export function useMayraSettings() {
     customHue: getInitialCustomHue(),
     voiceVisualizerEnabled: getInitialVoiceVisualizer(),
     auraBorderMode: getInitialAuraBorder(),
-    launcherIconVariant: getInitialLauncherIcon()
+    launcherIconVariant: getInitialLauncherIcon(),
+    appTheme: getInitialAppTheme(),
+    headingFont: getInitialHeadingFont(),
+    cameraAspectRatio: getInitialCameraAspectRatio()
   }));
 
   const setAppearanceConfig = useCallback((update: React.SetStateAction<AppearanceConfig> | Partial<AppearanceConfig>) => {
@@ -298,6 +334,21 @@ export function useMayraSettings() {
       if (next.launcherIconVariant && next.launcherIconVariant !== prev.launcherIconVariant) {
         try {
           localStorage.setItem(LAUNCHER_ICON_STORAGE_KEY, next.launcherIconVariant);
+        } catch (e) {}
+      }
+      if (next.appTheme && next.appTheme !== prev.appTheme) {
+        try {
+          localStorage.setItem(APP_THEME_STORAGE_KEY, next.appTheme);
+        } catch (e) {}
+      }
+      if (next.headingFont && next.headingFont !== prev.headingFont) {
+        try {
+          localStorage.setItem(HEADING_FONT_STORAGE_KEY, next.headingFont);
+        } catch (e) {}
+      }
+      if (next.cameraAspectRatio && next.cameraAspectRatio !== prev.cameraAspectRatio) {
+        try {
+          localStorage.setItem(CAMERA_ASPECT_RATIO_STORAGE_KEY, next.cameraAspectRatio);
         } catch (e) {}
       }
       return next;

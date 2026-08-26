@@ -11,14 +11,14 @@ import { MemoriesScreen } from './screens/MemoriesScreen';
 import { ChatScreen } from './screens/ChatScreen';
 import { MayraSettingsScreen } from './settings/MayraSettingsScreen';
 import { MayraLogo } from './common/MayraLogo';
-import { AudioWaveformIcon } from './common/AudioWaveformIcon';
+import { VoiceControlOrb } from './voice/VoiceControlOrb';
 import { useMayraWakeWord } from '../hooks/useMayraWakeWord';
 import { FloatingMayraOverlay } from './overlay/FloatingMayraOverlay';
 import { AgentTaskHUD } from './agent/AgentTaskHUD';
 import { 
   Home, Camera, Brain, MessageSquare, 
   Settings as SettingsIcon, Shield,
-  Trash2, Aperture, Plus
+  Trash2, Plus
 } from 'lucide-react';
 
 interface AndroidPhoneFrameProps {
@@ -32,7 +32,7 @@ interface AndroidPhoneFrameProps {
   isListeningMode?: boolean;
   inputText: string;
   setInputText: (text: string) => void;
-  onSubmitPrompt: (customText?: string, image?: { base64: string; mimeType?: string }) => void;
+  onSubmitPrompt: (customText?: string, image?: { base64: string; mimeType?: string; name?: string; size?: string }) => void;
   onTriggerVoice: () => void;
   onSelectRoutineAction: (action: string) => void;
   onSendVisionQuery: (query: string, image?: { base64: string; mimeType?: string }) => void;
@@ -210,10 +210,10 @@ export const AndroidPhoneFrame: React.FC<AndroidPhoneFrameProps> = ({
                 setIsSettingsOpen(true);
                 setCurrentSubScreen('root');
               }}
-              className="p-1.5 text-slate-300 hover:text-white bg-white/[0.06] hover:bg-white/[0.14] rounded-xl border border-white/15 backdrop-blur-xl transition-all shrink-0"
+              className="p-1.5 text-cyan-400 hover:text-cyan-300 bg-cyan-950/40 hover:bg-cyan-900/50 rounded-xl border border-cyan-400/30 backdrop-blur-xl shadow-[0_0_10px_rgba(6,182,212,0.25)] transition-all shrink-0 group"
               title="Settings"
             >
-              <SettingsIcon className="w-3.5 h-3.5" />
+              <SettingsIcon className="w-3.5 h-3.5 text-cyan-400 animate-[spin_10s_linear_infinite]" />
             </button>
           </div>
         </div>
@@ -277,6 +277,7 @@ export const AndroidPhoneFrame: React.FC<AndroidPhoneFrameProps> = ({
         {/* Tab 2: Vision Scanner (Full bleed with transformed shutter) */}
         <div className={`w-full h-full ${activeTab === 'scan' && !isSettingsOpen ? 'block' : 'hidden'}`}>
           <ScannerScreen 
+            aspectRatio={appearanceConfig.cameraAspectRatio || '9:16'}
             onSendVisionQuery={(query, image) => {
               onSendVisionQuery(query, image);
               setActiveTab('chat');
@@ -330,7 +331,7 @@ export const AndroidPhoneFrame: React.FC<AndroidPhoneFrameProps> = ({
         </div>
       </div>
 
-      {/* Android Bottom Navigation Bar (Equal 5-column grid with transformed center action) */}
+      {/* Android Bottom Navigation Bar (Equal 5-column grid with icon-only minimalist tabs) */}
       {!isSettingsOpen && (
         <div className={`h-16 border-t px-1 z-20 shrink-0 grid grid-cols-5 items-center transition-colors duration-200 ${
           isDark 
@@ -341,47 +342,53 @@ export const AndroidPhoneFrame: React.FC<AndroidPhoneFrameProps> = ({
           {/* Tab 1: Home */}
           <button
             onClick={() => setActiveTab('home')}
-            className={`flex flex-col items-center justify-center gap-0.5 w-full min-w-0 py-1 transition-all ${
+            aria-label="Home"
+            title="Home"
+            className={`flex items-center justify-center w-full min-w-0 h-full transition-all active:scale-95 ${
               activeTab === 'home' 
                 ? isDark 
-                  ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.6)] font-bold' 
-                  : 'text-cyan-600 font-bold'
+                  ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.6)]' 
+                  : 'text-cyan-600'
                 : isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Home className="w-4 h-4 shrink-0" />
-            <span className="text-[9px] font-mono truncate max-w-full text-center block">Home</span>
+            <Home className="w-5 h-5 shrink-0" />
           </button>
 
           {/* Tab 2: Scan */}
           <button
             onClick={() => setActiveTab('scan')}
-            className={`flex flex-col items-center justify-center gap-0.5 w-full min-w-0 py-1 transition-all ${
+            aria-label="Scan"
+            title="Scan"
+            className={`flex items-center justify-center w-full min-w-0 h-full transition-all active:scale-95 ${
               activeTab === 'scan' 
                 ? isDark 
-                  ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.6)] font-bold' 
-                  : 'text-cyan-600 font-bold'
+                  ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.6)]' 
+                  : 'text-cyan-600'
                 : isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Camera className="w-4 h-4 shrink-0" />
-            <span className="text-[9px] font-mono truncate max-w-full text-center block">Scan</span>
+            <Camera className="w-5 h-5 shrink-0" />
           </button>
 
-          {/* Tab 3: Center Large Dynamic Action Button (Transforms to Shutter on Scan tab, Plus on Memories tab, Mic otherwise) */}
-          <div className="flex flex-col items-center justify-center w-full min-w-0">
+          {/* Tab 3: Center Large Dynamic Action Button (Transforms to Shutter on Scan tab, Plus on Memories tab, Voice Orb otherwise) */}
+          <div className="flex flex-col items-center justify-center w-full min-w-0 -mt-2">
             <button
               onClick={handleCenterAction}
-              className={`w-12 h-12 rounded-full flex items-center justify-center transition-all shrink-0 active:scale-95 ${
+              className={`w-[52px] h-[52px] rounded-full flex items-center justify-center transition-all shrink-0 active:scale-95 overflow-hidden relative ${
                 activeTab === 'scan'
                   ? 'bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 text-white shadow-[0_0_18px_rgba(6,182,212,0.6)] border-2 border-white'
                   : activeTab === 'memories'
                   ? 'bg-gradient-to-tr from-purple-500 via-indigo-600 to-cyan-500 text-white shadow-[0_0_18px_rgba(168,85,247,0.6)] border-2 border-white/90'
                   : isListeningMode || status === 'LISTENING'
-                  ? 'bg-gradient-to-tr from-cyan-500 via-blue-600 to-purple-600 text-white shadow-[0_0_22px_rgba(6,182,212,0.85)] border-2 border-cyan-300 animate-pulse'
+                  ? 'bg-[#050e1f] text-white shadow-[0_0_24px_rgba(6,182,212,0.9)] border-2 border-cyan-400'
+                  : status === 'SPEAKING'
+                  ? 'bg-[#070e24] text-white shadow-[0_0_24px_rgba(56,189,248,0.85)] border-2 border-sky-400'
+                  : status === 'THINKING'
+                  ? 'bg-[#140b22] text-white shadow-[0_0_22px_rgba(245,158,11,0.75)] border-2 border-amber-400'
                   : isDark
-                  ? 'bg-white/[0.08] hover:bg-white/[0.16] text-slate-200 hover:text-white border-2 border-white/25 hover:border-white/45 shadow-md'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-2 border-slate-300 shadow-md'
+                  ? 'bg-[#060b19] hover:bg-[#0a1226] text-slate-200 hover:text-white border-2 border-cyan-500/40 hover:border-cyan-400/70 shadow-[0_4px_16px_rgba(0,0,0,0.6)]'
+                  : 'bg-slate-900 hover:bg-slate-800 text-white border-2 border-cyan-500/50 shadow-lg'
               }`}
               title={
                 activeTab === 'scan'
@@ -390,19 +397,21 @@ export const AndroidPhoneFrame: React.FC<AndroidPhoneFrameProps> = ({
                   ? 'Add Memory or Family Contact'
                   : isListeningMode || status === 'LISTENING'
                   ? 'Listening... Tap to stop'
+                  : status === 'SPEAKING'
+                  ? 'Mayra Speaking... Tap to interrupt'
                   : 'Tap to speak'
               }
             >
               {activeTab === 'scan' ? (
-                <Aperture className="w-6 h-6 stroke-[2] animate-spin-slow" />
+                <Camera className="w-6 h-6 stroke-[2.2] text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]" />
               ) : activeTab === 'memories' ? (
                 <Plus className="w-6 h-6 stroke-[2.5]" />
               ) : (
-                <AudioWaveformIcon
+                <VoiceControlOrb
                   status={status}
                   isListeningMode={isListeningMode}
-                  className="scale-110"
-                  barCount={4}
+                  appearanceConfig={appearanceConfig}
+                  size={48}
                 />
               )}
             </button>
@@ -411,31 +420,33 @@ export const AndroidPhoneFrame: React.FC<AndroidPhoneFrameProps> = ({
           {/* Tab 4: Memories */}
           <button
             onClick={() => setActiveTab('memories')}
-            className={`flex flex-col items-center justify-center gap-0.5 w-full min-w-0 py-1 transition-all ${
+            aria-label="Memories"
+            title="Memories"
+            className={`flex items-center justify-center w-full min-w-0 h-full transition-all active:scale-95 ${
               activeTab === 'memories' 
                 ? isDark 
-                  ? 'text-purple-400 drop-shadow-[0_0_8px_rgba(168,85,247,0.6)] font-bold' 
-                  : 'text-purple-600 font-bold'
+                  ? 'text-purple-400 drop-shadow-[0_0_8px_rgba(168,85,247,0.6)]' 
+                  : 'text-purple-600'
                 : isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Brain className="w-4 h-4 shrink-0" />
-            <span className="text-[9px] font-mono truncate max-w-full text-center block">Memories</span>
+            <Brain className="w-5 h-5 shrink-0" />
           </button>
 
           {/* Tab 5: Chat */}
           <button
             onClick={() => setActiveTab('chat')}
-            className={`flex flex-col items-center justify-center gap-0.5 w-full min-w-0 py-1 transition-all ${
+            aria-label="Chat"
+            title="Chat"
+            className={`flex items-center justify-center w-full min-w-0 h-full transition-all active:scale-95 ${
               activeTab === 'chat' 
                 ? isDark 
-                  ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.6)] font-bold' 
-                  : 'text-cyan-600 font-bold'
+                  ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.6)]' 
+                  : 'text-cyan-600'
                 : isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <MessageSquare className="w-4 h-4 shrink-0" />
-            <span className="text-[9px] font-mono truncate max-w-full text-center block">Chat</span>
+            <MessageSquare className="w-5 h-5 shrink-0" />
           </button>
         </div>
       )}

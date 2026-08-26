@@ -203,9 +203,9 @@ export const Character3DRenderer: React.FC<Character3DRendererProps> = ({
     const scene = new THREE.Scene();
     sceneRef.current = scene;
 
-    // 2. Camera
-    const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100);
-    camera.position.set(0, 0.3, 4.4);
+    // 2. Camera (Full character framing)
+    const camera = new THREE.PerspectiveCamera(44, width / height, 0.1, 100);
+    camera.position.set(0, 0.15, 3.4);
     cameraRef.current = camera;
 
     // 3. WebGL Renderer
@@ -243,7 +243,8 @@ export const Character3DRenderer: React.FC<Character3DRendererProps> = ({
 
     // 5. Main Character Root Group
     const characterGroup = new THREE.Group();
-    characterGroup.position.set(0, -0.65, 0);
+    characterGroup.position.set(0, -0.4, 0);
+    characterGroup.scale.set(1.45, 1.45, 1.45);
     scene.add(characterGroup);
     characterGroupRef.current = characterGroup;
 
@@ -743,7 +744,7 @@ export const Character3DRenderer: React.FC<Character3DRendererProps> = ({
       // Breathing Animation (Harmonic sine wave)
       const breath = Math.sin(elapsed * 2.2) * 0.025;
       if (characterGroupRef.current) {
-        characterGroupRef.current.position.y = -0.65 + breath * 0.5;
+        characterGroupRef.current.position.y = -0.4 + breath * 0.5;
       }
 
       // Dynamic Hair Twin-Tail Physics Sway
