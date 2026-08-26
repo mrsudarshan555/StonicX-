@@ -94,7 +94,7 @@ class MayraNotificationService : NotificationListenerService() {
                     isCall = isCall
                 )
 
-                Log.i(TAG, "Captured notification from $appLabel ($sender): $messagePayload")
+                Log.i(TAG, "Captured notification from $appLabel (${data.sender}): $messagePayload")
                 onNotificationReceivedListener?.invoke(data)
 
                 // Also send local broadcast
