@@ -83,6 +83,10 @@ dependencies {
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.8.8")
 
+    // Capacitor Framework
+    implementation("com.capacitorjs:core:6.2.0")
+    implementation("com.capacitorjs:android:6.2.0")
+
     // Coroutines & Serialization
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
