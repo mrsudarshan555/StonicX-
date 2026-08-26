@@ -3,5 +3,4 @@
     android:sessionService="com.mayra.assistant.services.MayraVoiceInteractionSessionService"
     android:recognitionService="com.mayra.assistant.services.MayraVoiceRecognitionService"
     android:supportsAssist="true"
-    android:supportsLaunchFromKeyguard="true"
     android:supportsLocalInteraction="true" />
