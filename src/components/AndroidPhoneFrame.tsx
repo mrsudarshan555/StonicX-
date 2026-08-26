@@ -20,6 +20,7 @@ import {
   Settings as SettingsIcon, Shield,
   Trash2, Plus
 } from 'lucide-react';
+import { getThemePreset } from '../utils/themePresets';
 
 interface AndroidPhoneFrameProps {
   activeTab: ActiveTab;
@@ -154,15 +155,22 @@ export const AndroidPhoneFrame: React.FC<AndroidPhoneFrameProps> = ({
   };
 
   const lastAssistantMessage = messages.filter(m => m.sender === 'mayra').slice(-1)[0]?.text;
+  const currentTheme = getThemePreset(appearanceConfig.appTheme);
 
   return (
-    <div className={`w-full h-full flex flex-col relative overflow-hidden bg-[#070913] select-none ${
-      appearanceConfig.auraBorderMode ? 'ring-1 ring-inset ring-cyan-400/40 shadow-[inset_0_0_30px_rgba(6,182,212,0.18)]' : ''
-    }`}>
+    <div 
+      className={`w-full h-full flex flex-col relative overflow-hidden bg-[#070913] select-none ${
+        appearanceConfig.auraBorderMode ? `ring-1 ring-inset ${currentTheme.activeBorder} ${currentTheme.glowShadow}` : ''
+      }`}
+      style={{
+        '--theme-primary': currentTheme.primaryHex,
+        '--theme-secondary': currentTheme.secondaryHex
+      } as React.CSSProperties}
+    >
 
       {/* Aura Border Pulse Effect */}
       {appearanceConfig.auraBorderMode && (
-        <div className="absolute inset-0 pointer-events-none z-50 border border-cyan-400/30 rounded-none shadow-[inset_0_0_24px_rgba(6,182,212,0.25)] animate-pulse" />
+        <div className={`absolute inset-0 pointer-events-none z-50 border ${currentTheme.activeBorder} rounded-none shadow-[inset_0_0_24px_rgba(255,255,255,0.15)] animate-pulse`} />
       )}
       
       {/* Top Floating Quick Controls Bar (Visible on Memories and Chat screens) */}
@@ -344,15 +352,18 @@ export const AndroidPhoneFrame: React.FC<AndroidPhoneFrameProps> = ({
             onClick={() => setActiveTab('home')}
             aria-label="Home"
             title="Home"
-            className={`flex items-center justify-center w-full min-w-0 h-full transition-all active:scale-95 ${
+            className={`flex items-center justify-center w-full min-w-0 h-full bg-transparent border-0 outline-none focus:outline-none transition-all active:scale-95 ${
               activeTab === 'home' 
                 ? isDark 
-                  ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.6)]' 
-                  : 'text-cyan-600'
+                  ? currentTheme.activeText 
+                  : currentTheme.activeText
                 : isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Home className="w-5 h-5 shrink-0" />
+            <Home 
+              className="w-5 h-5 shrink-0" 
+              style={activeTab === 'home' && isDark ? { filter: `drop-shadow(0 0 6px ${currentTheme.primaryHex})` } : undefined}
+            />
           </button>
 
           {/* Tab 2: Scan */}
@@ -360,15 +371,18 @@ export const AndroidPhoneFrame: React.FC<AndroidPhoneFrameProps> = ({
             onClick={() => setActiveTab('scan')}
             aria-label="Scan"
             title="Scan"
-            className={`flex items-center justify-center w-full min-w-0 h-full transition-all active:scale-95 ${
+            className={`flex items-center justify-center w-full min-w-0 h-full bg-transparent border-0 outline-none focus:outline-none transition-all active:scale-95 ${
               activeTab === 'scan' 
                 ? isDark 
-                  ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.6)]' 
-                  : 'text-cyan-600'
+                  ? currentTheme.activeText 
+                  : currentTheme.activeText
                 : isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Camera className="w-5 h-5 shrink-0" />
+            <Camera 
+              className="w-5 h-5 shrink-0" 
+              style={activeTab === 'scan' && isDark ? { filter: `drop-shadow(0 0 6px ${currentTheme.primaryHex})` } : undefined}
+            />
           </button>
 
           {/* Tab 3: Center Large Dynamic Action Button (Transforms to Shutter on Scan tab, Plus on Memories tab, Voice Orb otherwise) */}
@@ -377,7 +391,7 @@ export const AndroidPhoneFrame: React.FC<AndroidPhoneFrameProps> = ({
               onClick={handleCenterAction}
               className={`w-[52px] h-[52px] rounded-full flex items-center justify-center transition-all shrink-0 active:scale-95 overflow-hidden relative ${
                 activeTab === 'scan'
-                  ? 'bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 text-white shadow-[0_0_18px_rgba(6,182,212,0.6)] border-2 border-white'
+                  ? `bg-gradient-to-tr ${currentTheme.buttonGradient} text-white ${currentTheme.glowShadow} border-2 border-white`
                   : activeTab === 'memories'
                   ? 'bg-gradient-to-tr from-purple-500 via-indigo-600 to-cyan-500 text-white shadow-[0_0_18px_rgba(168,85,247,0.6)] border-2 border-white/90'
                   : isListeningMode || status === 'LISTENING'
@@ -387,8 +401,8 @@ export const AndroidPhoneFrame: React.FC<AndroidPhoneFrameProps> = ({
                   : status === 'THINKING'
                   ? 'bg-[#140b22] text-white shadow-[0_0_22px_rgba(245,158,11,0.75)] border-2 border-amber-400'
                   : isDark
-                  ? 'bg-[#060b19] hover:bg-[#0a1226] text-slate-200 hover:text-white border-2 border-cyan-500/40 hover:border-cyan-400/70 shadow-[0_4px_16px_rgba(0,0,0,0.6)]'
-                  : 'bg-slate-900 hover:bg-slate-800 text-white border-2 border-cyan-500/50 shadow-lg'
+                  ? `bg-[#060b19] hover:bg-[#0a1226] text-slate-200 hover:text-white border-2 ${currentTheme.activeBorder} shadow-[0_4px_16px_rgba(0,0,0,0.6)]`
+                  : `bg-slate-900 hover:bg-slate-800 text-white border-2 ${currentTheme.activeBorder} shadow-lg`
               }`}
               title={
                 activeTab === 'scan'
@@ -422,15 +436,18 @@ export const AndroidPhoneFrame: React.FC<AndroidPhoneFrameProps> = ({
             onClick={() => setActiveTab('memories')}
             aria-label="Memories"
             title="Memories"
-            className={`flex items-center justify-center w-full min-w-0 h-full transition-all active:scale-95 ${
+            className={`flex items-center justify-center w-full min-w-0 h-full bg-transparent border-0 outline-none focus:outline-none transition-all active:scale-95 ${
               activeTab === 'memories' 
                 ? isDark 
-                  ? 'text-purple-400 drop-shadow-[0_0_8px_rgba(168,85,247,0.6)]' 
+                  ? 'text-purple-400' 
                   : 'text-purple-600'
                 : isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Brain className="w-5 h-5 shrink-0" />
+            <Brain 
+              className="w-5 h-5 shrink-0" 
+              style={activeTab === 'memories' && isDark ? { filter: 'drop-shadow(0 0 6px rgba(168,85,247,0.8))' } : undefined}
+            />
           </button>
 
           {/* Tab 5: Chat */}
@@ -438,15 +455,18 @@ export const AndroidPhoneFrame: React.FC<AndroidPhoneFrameProps> = ({
             onClick={() => setActiveTab('chat')}
             aria-label="Chat"
             title="Chat"
-            className={`flex items-center justify-center w-full min-w-0 h-full transition-all active:scale-95 ${
+            className={`flex items-center justify-center w-full min-w-0 h-full bg-transparent border-0 outline-none focus:outline-none transition-all active:scale-95 ${
               activeTab === 'chat' 
                 ? isDark 
-                  ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.6)]' 
-                  : 'text-cyan-600'
+                  ? currentTheme.activeText 
+                  : currentTheme.activeText
                 : isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <MessageSquare className="w-5 h-5 shrink-0" />
+            <MessageSquare 
+              className="w-5 h-5 shrink-0" 
+              style={activeTab === 'chat' && isDark ? { filter: `drop-shadow(0 0 6px ${currentTheme.primaryHex})` } : undefined}
+            />
           </button>
         </div>
       )}

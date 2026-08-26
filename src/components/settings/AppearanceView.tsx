@@ -209,7 +209,7 @@ export const AppearanceView: React.FC<AppearanceViewProps> = ({
                     isSelected
                       ? isDark
                         ? `bg-[#10162E] ${themeItem.activeBorder} ${themeItem.glowShadow} ring-1 ${themeItem.ringColor}`
-                        : 'bg-slate-50 border-cyan-500 shadow-md ring-2 ring-cyan-400/30'
+                        : `${themeItem.activeBg} ${themeItem.activeBorder} shadow-md ring-2 ${themeItem.ringColor}`
                       : isDark
                         ? 'bg-[#0C1021] border-white/10 hover:border-white/20'
                         : 'bg-white border-slate-200 hover:border-slate-300 shadow-sm'

@@ -2,12 +2,14 @@ import { useState, useCallback } from 'react';
 import { 
   UserPersonalConfig, AssistantConfig, VoiceGuardianConfig, 
   AdvancedConfig, SkillItem, SubAgentItem, IntegrationItem, 
-  MemoryItem, AppearanceConfig, OrbStyleType, OrbColorType 
+  MemoryItem, AppearanceConfig, OrbStyleType, OrbColorType,
+  AppThemePreset 
 } from '../types';
 import { 
   INITIAL_SKILLS, INITIAL_SUB_AGENTS, INITIAL_ENROLLED_VOICES, 
   INITIAL_INTEGRATIONS, INITIAL_MEMORIES 
 } from '../data/defaultData';
+import { APP_THEMES } from '../utils/themePresets';
 import { MemoryVaultService } from '../services/memory/memoryVaultService';
 
 const CHARACTER_SIZE_STORAGE_KEY = 'mayra_character_size';
@@ -97,11 +99,11 @@ function getInitialLauncherIcon(): 'cyan_default' | 'amber_gold' | 'violet_cosmi
   return 'cyan_default';
 }
 
-function getInitialAppTheme(): 'cyan' | 'aura_red' | 'purple' | 'emerald' | 'midnight' {
+function getInitialAppTheme(): AppThemePreset {
   if (typeof window === 'undefined') return 'cyan';
   try {
-    const saved = localStorage.getItem(APP_THEME_STORAGE_KEY);
-    if (saved === 'cyan' || saved === 'aura_red' || saved === 'purple' || saved === 'emerald' || saved === 'midnight') return saved;
+    const saved = localStorage.getItem(APP_THEME_STORAGE_KEY) as AppThemePreset;
+    if (saved && APP_THEMES[saved]) return saved;
   } catch (e) {}
   return 'cyan';
 }

@@ -372,25 +372,25 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             </div>
           </div>
 
-          {/* Right: Sleek Action Icons */}
-          <div className="flex items-center gap-1.5 shrink-0">
+          {/* Right: Sleek Pure Action Icons (No circular/boxed backgrounds) */}
+          <div className="flex items-center gap-2.5 shrink-0">
             {onOpenWhiteboard && (
               <button
                 onClick={onOpenWhiteboard}
-                className="p-1.5 bg-white/[0.06] hover:bg-cyan-500/20 backdrop-blur-xl border border-white/10 hover:border-cyan-400/50 rounded-xl text-slate-300 hover:text-cyan-300 transition-all"
+                className="p-1 bg-transparent border-0 text-slate-300 hover:text-cyan-300 transition-colors"
                 title="Interactive Whiteboard Tool"
               >
-                <PenTool className="w-3.5 h-3.5" />
+                <PenTool className="w-4 h-4" />
               </button>
             )}
 
             {/* Barehands Gesture Tracking Toggle Button */}
             <button
               onClick={toggleHandTracking}
-              className={`p-1.5 rounded-xl border backdrop-blur-xl transition-all ${
+              className={`p-1 bg-transparent border-0 transition-colors ${
                 isHandTrackingActive || isHandTrackingLoading
-                  ? 'bg-cyan-500/25 border-cyan-400/80 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.4)]'
-                  : 'bg-white/[0.06] hover:bg-white/[0.12] border-white/10 text-slate-300 hover:text-white'
+                  ? 'text-cyan-400 drop-shadow-[0_0_10px_rgba(6,182,212,0.9)]'
+                  : 'text-slate-300 hover:text-white'
               }`}
               title={
                 isHandTrackingLoading
@@ -400,42 +400,42 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   : 'Enable Barehands Hand Tracking (Rotate & Zoom via Gestures)'
               }
             >
-              <Hand className={`w-3.5 h-3.5 ${isHandTrackingLoading ? 'animate-pulse text-cyan-400' : ''}`} />
+              <Hand className={`w-4 h-4 ${isHandTrackingLoading ? 'animate-pulse text-cyan-400' : ''}`} />
             </button>
 
             {/* Screen Share / Cast Button */}
             <button
               onClick={handleToggleScreenShare}
-              className={`p-1.5 rounded-xl border backdrop-blur-xl transition-all ${
+              className={`p-1 bg-transparent border-0 transition-colors ${
                 isScreenSharing
-                  ? 'bg-cyan-500/25 border-cyan-400/80 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.4)]'
-                  : 'bg-white/[0.06] hover:bg-white/[0.12] border-white/10 text-slate-300 hover:text-white'
+                  ? 'text-cyan-400 drop-shadow-[0_0_10px_rgba(6,182,212,0.9)]'
+                  : 'text-slate-300 hover:text-white'
               }`}
               title={isScreenSharing ? 'Disconnect Screen Share' : 'Connect Screen Stream'}
             >
-              <ScreenShare className="w-3.5 h-3.5" />
+              <ScreenShare className="w-4 h-4" />
             </button>
 
             {/* Character Lock / Unlock Button */}
             <button
               onClick={handleToggleLock}
-              className={`p-1.5 rounded-xl backdrop-blur-xl border transition-all ${
-                lockState.isLocked
-                  ? 'bg-amber-500/25 border-amber-400/80 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.4)]'
-                  : 'bg-white/[0.06] hover:bg-white/[0.12] border-white/10 text-slate-300 hover:text-white'
-              }`}
+              className="p-1 bg-transparent border-0 transition-colors text-slate-300 hover:text-white"
               title={lockState.isLocked ? 'Character Locked' : 'Character Unlocked'}
             >
-              {lockState.isLocked ? <Lock className="w-3.5 h-3.5 text-amber-400" /> : <Unlock className="w-3.5 h-3.5 text-slate-300" />}
+              {lockState.isLocked ? (
+                <Lock className="w-4 h-4 text-amber-400 drop-shadow-[0_0_10px_rgba(245,158,11,0.9)]" />
+              ) : (
+                <Unlock className="w-4 h-4 text-slate-300 hover:text-white" />
+              )}
             </button>
 
-            {/* Settings Gear Icon: Blue rotating gear */}
+            {/* Settings Gear Icon: Clean rotating gear without background */}
             <button
               onClick={onOpenSettings}
-              className="p-1.5 bg-cyan-950/40 hover:bg-cyan-900/50 backdrop-blur-xl border border-cyan-400/30 hover:border-cyan-400/60 rounded-xl text-cyan-400 hover:text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.25)] transition-all group"
+              className="p-1 bg-transparent border-0 text-cyan-400 hover:text-cyan-300 drop-shadow-[0_0_8px_rgba(6,182,212,0.6)] transition-colors group"
               title={`Settings (${userName})`}
             >
-              <SettingsIcon className="w-3.5 h-3.5 text-cyan-400 animate-[spin_10s_linear_infinite]" />
+              <SettingsIcon className="w-4 h-4 animate-[spin_10s_linear_infinite]" />
             </button>
           </div>
         </header>

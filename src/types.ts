@@ -257,7 +257,20 @@ export type OrbTypePreset = 'classic' | 'energy' | 'neon' | 'hologram';
 
 export type AppLauncherIconVariant = 'cyan_default' | 'amber_gold' | 'violet_cosmic' | 'stealth_obsidian';
 
-export type AppThemePreset = 'cyan' | 'aura_red' | 'purple' | 'emerald' | 'midnight';
+export type AppThemePreset = 
+  | 'cyan' 
+  | 'royal_blue' 
+  | 'aura_red' 
+  | 'purple' 
+  | 'emerald' 
+  | 'amber' 
+  | 'rose_pink' 
+  | 'midnight' 
+  | 'orange' 
+  | 'teal' 
+  | 'lime' 
+  | 'gold' 
+  | 'slate';
 
 export type HeadingFontType = 'system' | 'orbitron' | 'sora' | 'manrope' | 'space_grotesk';
 
