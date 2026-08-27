@@ -20,6 +20,7 @@ add_library(
     SHARED
     mayra_llama_jni.cpp
     llama_engine.cpp
+    llama.cpp
 )
 
 target_include_directories(
