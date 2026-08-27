@@ -9,15 +9,21 @@ extern "C" {
 #endif
 
 // GGML types & backend constants
-typedef int32_t ggml_type;
-#define GGML_TYPE_F32  0
-#define GGML_TYPE_F16  1
-#define GGML_TYPE_Q4_0 2
-#define GGML_TYPE_Q4_1 3
-#define GGML_TYPE_Q4_K 12
-#define GGML_TYPE_Q5_K 13
-#define GGML_TYPE_Q6_K 14
-#define GGML_TYPE_Q8_0 8
+#ifndef GGML_TYPE_DEFINED
+#define GGML_TYPE_DEFINED
+enum ggml_type {
+    GGML_TYPE_F32  = 0,
+    GGML_TYPE_F16  = 1,
+    GGML_TYPE_Q4_0 = 2,
+    GGML_TYPE_Q4_1 = 3,
+    GGML_TYPE_Q4_K = 12,
+    GGML_TYPE_Q5_K = 13,
+    GGML_TYPE_Q6_K = 14,
+    GGML_TYPE_Q8_0 = 8,
+    GGML_TYPE_COUNT,
+};
+typedef enum ggml_type ggml_type;
+#endif
 
 struct ggml_context;
 struct ggml_tensor;

@@ -23,6 +23,7 @@ struct GenerationOptions {
     float temperature = 0.7f;
     float top_p = 0.9f;
     int max_tokens = 512;
+    int batch_size = 512;
     std::vector<std::string> stop_sequences;
 };
 
