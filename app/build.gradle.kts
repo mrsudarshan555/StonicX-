@@ -59,6 +59,16 @@ android {
         )
     }
 
+    sourceSets {
+        getByName("main") {
+            assets.srcDirs("src/main/assets")
+        }
+    }
+
+    aaptOptions {
+        noCompress("pmx", "bmp", "png", "jpg", "json")
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true
